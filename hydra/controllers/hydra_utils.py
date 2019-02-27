@@ -106,6 +106,7 @@ class Troposphere(HydraHelper):
             InitConfig, InitService, InitServices
         from troposphere import Ref, Template, ec2, Parameter, Output, GetAtt
         from troposphere.ec2 import NetworkInterfaceProperty
+        
         instance = ec2.Instance("node%s" % i)
         instance.ImageId = self.app.config.get('hydra', 'aws_ec2_ami_id')
         instance.InstanceType = self.app.config.get('hydra', 'aws_ec2_instance_type')
@@ -124,21 +125,12 @@ class Troposphere(HydraHelper):
                 '',
                 [
                     '#!/bin/bash -xe\n',
-                    'yum update -y aws-cfn-bootstrap\n',
-                    '/opt/aws/bin/cfn-init -v ',
-                    '         --stack ',
-                    Ref('AWS::StackName'),
-                    '         --resource %s '%Ref(instance),
-                    '         --region ',
-                    Ref('AWS::Region'),
-                    '\n',
-                    '/opt/aws/bin/cfn-signal -e $? ',
-                    '         --stack ',
-                    Ref('AWS::StackName'),
-                    '         --resource %s'%Ref(instance),
-                    '         --region ',
-                    Ref('AWS::Region'),
-                    '\n',
+                    'apt update -y -q\n',
+                    'apt install -y -q python3-pip\n',
+                    'pip3 install cement colorlog'
+                    'pip3 install %s'%(
+                        self.app.config.get('provision', 'hydra_source')
+                    )
                 ])
         )
         t.add_resource(instance)

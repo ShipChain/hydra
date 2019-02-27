@@ -9,7 +9,7 @@ from .controllers import hydra_utils
 import os
 
 # configuration defaults
-CONFIG = init_defaults('hydra', 'log.logging', 'devel')
+CONFIG = init_defaults('hydra', 'log.logging', 'devel', 'provision')
 CONFIG['hydra']['workdir'] = os.path.realpath(os.getcwd())
 CONFIG['hydra']['distdir'] = './dist'
 CONFIG['hydra']['build_binary_path'] = './loomchain/shipchain'
@@ -20,6 +20,7 @@ CONFIG['hydra']['aws_ec2_region'] = 'us-east-1'
 CONFIG['hydra']['aws_ec2_instance_type'] = 'm5.xlarge'
 CONFIG['hydra']['aws_ec2_ami_id'] = 'ami-0a313d6098716f372'
 CONFIG['devel']['path'] = '%(workdir)s/devel'
+CONFIG['provision']['hydra_source'] = 'hydra'
 
 def add_helpers(app):
     hydra_utils.Utils.register('utils', app)
