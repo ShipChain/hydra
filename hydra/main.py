@@ -12,6 +12,7 @@ import os
 CONFIG = init_defaults('hydra', 'log.logging', 'devel', 'provision')
 CONFIG['hydra']['workdir'] = os.path.realpath(os.getcwd())
 CONFIG['hydra']['distdir'] = './dist'
+CONFIG['hydra']['project'] = 'shipchain'
 CONFIG['hydra']['build_binary_path'] = './loomchain/shipchain'
 CONFIG['hydra']['dist_binary_path'] = '%(distdir)s/shipchain'
 CONFIG['hydra']['aws_profile'] = 'shipchain'
@@ -27,6 +28,7 @@ def add_helpers(app):
     hydra_utils.Release.register('release', app)
     hydra_utils.Devel.register('devel', app)
     hydra_utils.Troposphere.register('tropo', app)
+    app.project = app.config.get('hydra', 'project')
 
 class Hydra(App):
     """ShipChain Network Hydra Manager primary application."""

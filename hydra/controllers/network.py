@@ -56,7 +56,7 @@ class Network(Controller):
         tpl = template.to_json()
 
         cf = self.app.utils.get_boto().resource('cloudformation')
-        stack_name = 'shipchain-network-%s'%id
+        stack_name = '%s-network-%s'%(self.app.project, id)
         stack = cf.create_stack(
             StackName=stack_name,
             TemplateBody=tpl
@@ -75,6 +75,25 @@ class Network(Controller):
                 return
             print(stack.stack_status)
             if stack.stack_status == 'CREATE_COMPLETE':
+                self.register_network(stack_name, {
+                    'bootstrapped': datetime.tznow().strftime('%c'),
+                    'size': nodes,
+                    'vpc': vpc,
+                    'subnet': subnet,
+                    'sg': sg
+                })
                 break
             
             time.sleep(10)
+        
+    def register_network(self, network_name, options):
+        try:
+            networks = json.load(open(self.utils.path('networks.json'), 'r+'))
+        except:
+            networks = {}
+
+        networks[network_name] = options
+
+        json.dump(networks, open(self.utils.path('networks.json'), 'w+'))
+
+

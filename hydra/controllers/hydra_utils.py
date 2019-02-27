@@ -127,7 +127,6 @@ class Troposphere(HydraHelper):
                     '#!/bin/bash -xe\n',
                     'apt update -y -q\n',
                     'apt install -y -q python3-pip\n',
-                    'pip3 install cement colorlog'
                     'pip3 install %s'%(
                         self.app.config.get('provision', 'hydra_source')
                     )
