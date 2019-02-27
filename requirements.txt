@@ -1,0 +1,8 @@
+cement==3.0.0
+jinja2
+pyyaml
+colorlog
+pyfiglet
+colored
+boto3
+troposphere
