@@ -21,7 +21,7 @@ class Client(Controller):
         self.app.client.pip_update_hydra()
 
     @ex(
-        arguments= [
+        arguments=[
             (
                 ['-D', '--destroy'],
                 {
@@ -52,7 +52,7 @@ def bootstrap(app, destination, version=None, destroy=False):
 
     os.chmod('./shipchain', os.stat('./shipchain').st_mode | stat.S_IEXEC)
         
-    got_version = app.utils.binary_exec(['./shipchain', 'version']).stderr.strip()
+    got_version = app.utils.binary_exec('./shipchain', 'version').stderr.strip()
     app.log.info('Copied ShipChain binary version %s'%got_version)
 
     app.log.info('Initializing Loom...')
