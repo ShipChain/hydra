@@ -138,7 +138,7 @@ class Client(HydraHelper):
             {"name": "",
             "power": 10,
             "pub_key": {
-                "type": "AC26791624DE60",
+                "type": "tendermint/PubKeyEd25519",
                 "value": validator['pubkey']
             }}
             for ip, validator in remote_config['node_data'].items()
@@ -148,7 +148,7 @@ class Client(HydraHelper):
         genesis = json.load(open('genesis.json'))
         for i, contract in enumerate(genesis['contracts']):
             if contract['name'] == 'dpos':
-                genesis['contracts'][i]['init']['params']['witnessCount'] = 51
+                genesis['contracts'][i]['init']['params']['witnessCount'] = '51'
                 genesis['contracts'][i]['init']['validators'] = [
                     {'pubkey': validator['pubkey'], 'power': '10'}
                     for ip, validator in remote_config['node_data'].items()
