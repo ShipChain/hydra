@@ -16,7 +16,7 @@ class Network(Controller):
         description = 'Troposphere remote launch tools'
 
     @ex(
-        help='Bootstrap a new ShipChain network',
+        help='Provision a new ShipChain network',
         arguments= [
             (
                 ['--id'],
@@ -36,7 +36,7 @@ class Network(Controller):
             ),
         ]
     )
-    def bootstrap(self):
+    def provision(self):
         id = self.app.pargs.id or str(uuid.uuid4())[:6]
         nodes = int(self.app.pargs.nodes or 1)
 
@@ -92,6 +92,25 @@ class Network(Controller):
                 self.app.log.info('ssh ubuntu@%s'%ips[0])
                 break
             time.sleep(10)
+
+    @ex(
+        help='Run on all nodes',
+        arguments= [
+            (
+                ['--id'],
+                {
+                    'help': 'the ID of the network to run on',
+                    'action': 'store',
+                    'dest': 'id'
+                }
+            )
+        ]
+    )
+    def ssh_first_node(self):
+        networks = self.read_networks_file()
+        ip = networks[self.app.pargs.id or list(networks.keys())[0]]['ips'][0]
+        os.execvp('ssh', ['ssh', 'ubuntu@%s'%ip])
+        
     @ex(
         help='Run on all nodes',
         arguments= [
