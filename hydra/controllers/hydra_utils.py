@@ -158,7 +158,7 @@ class Client(HydraHelper):
         open('start_blockchain.sh', 'w+').write("""
         #!/bin/bash
         ./shipchain run --persistent-peers %s
-        """%','.join(['tcp://%s@%s:46657'%(validator['nodekey'], ip)
+        """%','.join(['tcp://%s@%s:46656'%(validator['nodekey'], ip)
         for ip, validator in remote_config['node_data'].items() ]))
 
 
@@ -379,7 +379,7 @@ class Networks(HydraHelper):
                     NetworkAclId=Ref(networkAcl),
                     RuleNumber='100',
                     Protocol='6',
-                    PortRange=PortRange(To='9999', From='9999'),
+                    PortRange=PortRange(To='46656', From='46656'),
                     Egress='false',
                     RuleAction='allow',
                     CidrBlock='0.0.0.0/0',
@@ -451,7 +451,7 @@ class Networks(HydraHelper):
                     NetworkAclId=Ref(networkAcl),
                     RuleNumber='103',
                     Protocol='6',
-                    PortRange=PortRange(To='9999', From='9999'),
+                    PortRange=PortRange(To='46656', From='46656'),
                     Egress='true',
                     RuleAction='allow',
                     CidrBlock='0.0.0.0/0',
@@ -482,8 +482,8 @@ class Networks(HydraHelper):
                             CidrIp='0.0.0.0/0'),
                         SecurityGroupRule(
                             IpProtocol='tcp',
-                            FromPort='9999',
-                            ToPort='9999',
+                            FromPort='46656',
+                            ToPort='46656',
                             CidrIp='0.0.0.0/0')],
                     VpcId=use_vpc,
                 ))
