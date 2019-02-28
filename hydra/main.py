@@ -13,28 +13,31 @@ import os
 CONFIG = init_defaults('hydra', 'log.logging', 'release', 'devel', 'provision', 'client')
 CONFIG['hydra']['workdir'] = os.path.realpath(os.getcwd())
 CONFIG['hydra']['project'] = 'shipchain'
+CONFIG['hydra']['binary_name'] = '%(project)s'
 CONFIG['hydra']['project_source'] = 'https://code.lwb.co/linked/hydra.git'
-CONFIG['hydra']['release_url'] = 'https://lwbco-network-dist.s3.amazonaws.com'
+CONFIG['hydra']['channel_url'] = 'https://lwbco-network-dist.s3.amazonaws.com'
+CONFIG['log.logging']['level'] = 'debug'
 CONFIG['release']['distdir'] = './dist'
 CONFIG['release']['build_binary_path'] = './loomchain/shipchain'
-CONFIG['release']['dist_binary_path'] = '%(distdir)s/shipchain'
-CONFIG['release']['aws_profile'] = 'shipchain'
-CONFIG['release']['aws_s3_dist_bucket'] = '%(aws_profile)s-network-dist'
-CONFIG['provision']['aws_profile'] = 'shipchain'
+CONFIG['release']['aws_profile'] = None
+CONFIG['release']['aws_s3_dist_bucket'] = '%(project)s-network-dist'
+CONFIG['provision']['aws_profile'] = None
 CONFIG['provision']['aws_ec2_region'] = 'us-east-1'
 CONFIG['provision']['aws_ec2_instance_type'] = 'm5.xlarge'
 CONFIG['provision']['aws_ec2_ami_id'] = 'ami-0a313d6098716f372'
-CONFIG['provision']['hydra_source'] = 'hydra'
+CONFIG['provision']['pip_install'] = 'git+%(project_source)s@master'
 CONFIG['devel']['path'] = '%(workdir)s/devel'
 CONFIG['client']['pip_install'] = 'git+%(project_source)s@master'
 
 def add_helpers(app):
-    hydra_utils.Utils.register('utils', app)
-    hydra_utils.Release.register('release', app)
-    hydra_utils.Devel.register('devel', app)
-    hydra_utils.Client.register('client', app)
-    hydra_utils.Troposphere.register('tropo', app)
+    hydra_utils.Utils.attach('utils', app)
+    hydra_utils.Release.attach('release', app)
+    hydra_utils.Devel.attach('devel', app)
+    hydra_utils.Client.attach('client', app)
+    hydra_utils.Networks.attach('networks', app)
     app.project = app.config.get('hydra', 'project')
+
+        
 
 class Hydra(App):
     """ShipChain Network Hydra Manager primary application."""
@@ -88,7 +91,15 @@ class HydraTest(TestApp,Hydra):
 
 
 def main():
+
     with Hydra() as app:
+        app.config_file = os.path.expanduser('~/.hydra.yml') 
+
+        if not os.path.exists(app.config_file):
+            print('First run: Generating ~/.hydra.yml config...')
+            from yaml import dump
+            open(app.config_file, 'w+').write(
+                dump({'hydra': CONFIG['hydra']}, indent=4)) 
         try:
             app.run()
 

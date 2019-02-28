@@ -53,7 +53,8 @@ class Base(Controller):
     def info(self):
         outputs = OrderedDict()
 
-        outputs['Work Directory'] = self.utils.workdir()
+        outputs['Work Directory'] = self.utils.path()
+        outputs['Project Name'] = self.app.config.get('hydra', 'project')
 
         # Build Binary
         outputs['Build Binary Path'] = self.release.dist_binary_path
@@ -68,9 +69,11 @@ class Base(Controller):
         except IOError: outputs['Dist Binary Version'] = '(doesnt exist)'
 
         # AWS
-        outputs['AWS Profile'] = self.app.config.get('hydra', 'aws_profile')
+        outputs['Release AWS Profile'] = self.app.config.get('release', 'aws_profile')
         outputs['S3 Dist Bucket'] = self.app.release.dist_bucket
         outputs['Boto Version'] = boto3.__version__
+
+        outputs['Provision AWS Profile'] = self.app.config.get('provision', 'aws_profile')
         
         print(SHIP, RESET)
         for k, v in outputs.items():

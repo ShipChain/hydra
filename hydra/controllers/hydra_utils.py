@@ -1,7 +1,7 @@
 from pyfiglet import Figlet
 from colored import fg, attr
-
-import os, subprocess, boto3
+from datetime import datetime
+import os, subprocess, boto3, json, stat, time
 
 FIG = lambda t, f='slant': Figlet(font=f).renderText(t)
 RESET = attr('reset')
@@ -9,15 +9,14 @@ ORANGE = fg('orange_1')
 SHIP = ORANGE + FIG('ShipChain') + RESET
 BLUE = fg('blue')
 HYDRA = BLUE + FIG('HYDRA', 'block') + RESET
-
+from hydra.core.version import get_version
 
 class HydraHelper(object):
     def __init__(self, app):
         self.app = app
-        
 
     @classmethod
-    def register(kls, name, app):
+    def attach(kls, name, app):
         setattr(app, name, kls(app))
     
     @property
@@ -25,14 +24,18 @@ class HydraHelper(object):
         return self.app.config
 
 class Utils(HydraHelper):
-    def workdir(self, extrapath=''):
+    def workdir(self, *extrapath):
         return os.path.realpath(os.path.join(
             self.config['hydra']['workdir'],
-            extrapath
+            *extrapath
         ))
     
-    def path(self, extrapath=''):
-        return self.workdir(extrapath % self.config['hydra'])
+    def path(self, *extrapath):
+        return self.workdir(*[e % self.config['hydra'] for e in extrapath])
+    
+    @property
+    def binary_name(self):
+        return self.config['hydra']['binary_name'] % self.config['hydra']
 
     def binary_exec(self, path, *args):
         return self.raw_exec(path, *args)
@@ -47,7 +50,7 @@ class Utils(HydraHelper):
         open(destination, 'wb+').write(requests.get(url).content)
     
     def download_release_file(self, destination, file, version=None):
-        host = self.config.get('hydra', 'release_url')
+        host = self.config.get('hydra', 'channel_url')
         if not version:
             url = '%s/latest/%s' % (host, file)
         else:
@@ -59,9 +62,6 @@ class Utils(HydraHelper):
             raise IOError('Expected shipchain binary:', path)
         return self.binary_exec(path, 'version').stderr.split('\n')[0]
 
-    
-    def get_boto(self):
-        return boto3.Session(profile_name=self.config.get('hydra', 'aws_profile'))
 
 class Client(HydraHelper):
     def pip_update_hydra(self):
@@ -69,6 +69,50 @@ class Client(HydraHelper):
         self.app.log.info('Updating pip from remote %s'%pip)
         # Execvp will replace this process with the sidechain
         os.execvp('pip3', ['pip3', 'install', pip])
+    
+    def bootstrap(self, destination, version=None, destroy=False):
+        if os.path.exists(destination):
+            if not destroy:
+                self.app.log.error('Node directory exists, use -D to delete: %s'%destination)
+                return
+            rmtree(destination)
+
+        os.makedirs(destination)
+        
+        os.chdir(destination)
+
+        self.app.utils.download_release_file('./shipchain', 'shipchain')
+
+        os.chmod('./shipchain', os.stat('./shipchain').st_mode | stat.S_IEXEC)
+            
+        got_version = self.app.utils.binary_exec('./shipchain', 'version').stderr.strip()
+        self.app.log.debug('Copied ShipChain binary version %s'%got_version)
+
+        self.app.log.info('Initializing Loom...')
+
+        self.app.utils.binary_exec('./shipchain', 'init')
+
+        time.sleep(1) # Gotta wait a second because the priv_validator doesn't always show up
+
+        validator = json.load(open('chaindata/config/priv_validator.json'))
+
+        self.app.log.info('Your validator address is:')
+        self.app.log.info(validator['address'])
+        self.app.log.info('Your validator public key is:')
+        self.app.log.info(validator['pub_key']['value'])
+
+        self.app.log.debug('Writing hydra metadata...')
+        metadata = {
+            'bootstrapped': datetime.utcnow().strftime('%c'),
+            'address': validator['address'],
+            'pubkey': validator['pub_key']['value'],
+            'shipchain_version': version,
+            'by': 'hydra-bootstrap-%s'%get_version()
+        }
+        json.dump(metadata, open('.bootstrap.json', 'w+'), indent=2)
+
+
+        self.app.log.info('Done!')
 
 class Release(HydraHelper):
     def path(self, extrapath=''):
@@ -83,7 +127,9 @@ class Release(HydraHelper):
 
     @property
     def dist_binary_path(self):
-        return self.app.utils.path(self.config.get('release', 'dist_binary_path'))
+        return os.path.join(
+            self.app.utils.path(self.config.get('release', 'distdir')),
+            self.app.utils.binary_name)
     
     @property
     def dist_bucket(self):
@@ -97,7 +143,9 @@ class Release(HydraHelper):
 
     def get_build_version(self):
         return self.app.utils.get_binary_version(self.build_binary_path)
-
+    
+    def get_boto(self):
+        return boto3.Session(profile_name=self.config.get('release', 'aws_profile'))
 
 class Devel(HydraHelper):
     def path(self, extrapath=''):
@@ -114,7 +162,32 @@ class Devel(HydraHelper):
         return self.app.utils.get_binary_version(self.dist_binary_path)
 
 
-class Troposphere(HydraHelper):
+class Networks(HydraHelper):
+    def read_networks_file(self):
+        try:
+            return json.load(open(self.app.utils.path('networks.json'), 'r+'))
+        except:
+            return {}
+        
+    def register(self, network_name, options):
+        networks = self.read_networks_file()
+
+        networks[network_name] = options or {}
+
+        json.dump(networks, open(self.app.utils.path('networks.json'), 'w+'))
+
+    def deregister(self, network_name):
+        networks = self.read_networks_file()
+
+        if network_name in networks:
+            networks.pop(network_name, '')
+            self.app.log.info('Deregistering network: %s' % network_name)
+
+        json.dump(networks, open(self.app.utils.path('networks.json'), 'w+'))
+
+    def get_boto(self):
+        return boto3.Session(profile_name=self.config.get('provision', 'aws_profile'))
+
     def add_instance(self, t, i, sg, subnet):
         from troposphere import Base64, FindInMap, GetAtt, Join, Output
         from troposphere import Ref, Tags, Template
@@ -152,7 +225,7 @@ class Troposphere(HydraHelper):
                     'apt remove -y -q python3-yaml\n',
                     'pip3 install cement colorlog\n',
                     'pip3 install %s'%(
-                        self.app.config.get('provision', 'hydra_source')
+                        self.app.config.get('provision', 'pip_install')
                     )
                 ])
         )

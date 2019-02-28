@@ -1,4 +1,4 @@
-from cement import Controller, ex
+from cement import Controller, ex, shell
 from datetime import datetime
 from shutil import copy, rmtree
 from troposphere import Ref, Template, ec2, Parameter, Output, GetAtt
@@ -39,6 +39,7 @@ class Network(Controller):
     def provision(self):
         id = self.app.pargs.id or str(uuid.uuid4())[:6]
         nodes = int(self.app.pargs.nodes or 1)
+        stack_name = '%s-network-%s'%(self.app.project, id)
 
         if not 'aws_ec2_key_name' in self.app.config['provision']:
             self.app.log.error('You need to set provision.aws_ec2_key_name in the config')
@@ -46,18 +47,14 @@ class Network(Controller):
 
         self.app.log.info('Starting new network: %s' % stack_name)
         template = Template()
-        sg, subnet, vpc = self.app.tropo.sg_subnet_vpc(template)
+        sg, subnet, vpc = self.app.networks.sg_subnet_vpc(template)
 
         for i in range(nodes):
-            self.app.tropo.add_instance(template, i, sg, subnet)
-
-
-        
+            self.app.networks.add_instance(template, i, sg, subnet)        
 
         tpl = template.to_json()
 
-        cf = self.app.utils.get_boto().resource('cloudformation')
-        stack_name = '%s-network-%s'%(self.app.project, id)
+        cf = self.app.networks.get_boto().resource('cloudformation')
         stack = cf.create_stack(
             StackName=stack_name,
             TemplateBody=tpl
@@ -68,17 +65,17 @@ class Network(Controller):
         while True:
             stack.reload()
             if stack.stack_status.startswith('ROLLBACK_'):
-                self.app.log.error('Error deploying cloudformation, do you want to delete the stack?')
-                print(' [Y/n] ')
-                if input().lower() in {'yes', 'y', 'ye', ''}:
-                    self.app.log.error('Deleting your stack...')
+                p = shell.Prompt('Error deploying cloudformation, what do you want to do?',
+                    options=['Delete It', 'Leave It'], numbered=True
+                )
+                if p.prompt() == 'Delete It':
                     stack.delete()
                 return
             print(stack.stack_status)
             if stack.stack_status == 'CREATE_COMPLETE':
                 outputs = {o['OutputKey']: o['OutputValue'] for o in stack.outputs}
                 ips = [outputs['IP%s'%i] for i in range(nodes)]
-                self.register_network(stack_name, {
+                self.app.networks.register(stack_name, {
                     'bootstrapped': datetime.utcnow().strftime('%c'),
                     'size': nodes,
                     'outputs': outputs,
@@ -94,7 +91,7 @@ class Network(Controller):
             time.sleep(10)
 
     @ex(
-        help='Run on all nodes',
+        help='SSH into the first available node',
         arguments= [
             (
                 ['--id'],
@@ -107,7 +104,7 @@ class Network(Controller):
         ]
     )
     def ssh_first_node(self):
-        networks = self.read_networks_file()
+        networks = self.app.networks.read_networks_file()
         ip = networks[self.app.pargs.id or list(networks.keys())[0]]['ips'][0]
         os.execvp('ssh', ['ssh', 'ubuntu@%s'%ip])
         
@@ -133,14 +130,22 @@ class Network(Controller):
         ]
     )
     def run_on_all_nodes(self):
-        networks = self.read_networks_file()
+        networks = self.app.networks.read_networks_file()
 
         for ip in networks[self.app.pargs.id]['ips']:
             self.run_command(ip, self.app.pargs.cmd)
 
     def run_command(self, ip, cmd):    
-        KEY = os.path.expanduser('~/.ssh/%s.pem'%
-            self.app.config.get('provision', 'aws_ec2_key_name'))
+        DEFAULT_KEY = '~/.ssh/%(aws_ec2_key_name)s.pem'
+        provision = self.app.config['provision']
+        KEY = os.path.expanduser(
+            'aws_ec2_key_path' in provision and
+            provision['aws_ec2_key_path'] % provision or
+            DEFAULT_KEY % provision
+        )
+
+        self.app.log.info('Running on %s: %s' % (ip, cmd))
+        self.app.log.debug('Using keyfile: %s' % KEY)
 
         client = paramiko.SSHClient()
         client.set_missing_host_key_policy(paramiko.client.AutoAddPolicy)
@@ -152,23 +157,12 @@ class Network(Controller):
             print('... ' + line.strip('\n'))
         client.close() 
 
-    def read_networks_file(self):
-        try:
-            return json.load(open(self.app.utils.path('networks.json'), 'r+'))
-        except:
-            return {}
-        
-    def register_network(self, network_name, options):
-        networks = self.read_networks_file()
-
-        networks[network_name] = options
-
-        json.dump(networks, open(self.app.utils.path('networks.json'), 'w+'))
+    
 
     def deprovision(self, network_name):
         self.app.log.info('Deleting network: %s' % network_name)
         
-        self.deregister_network(network_name)
+        self.app.networks.deregister(network_name)
 
         cf = self.app.utils.get_boto().resource('cloudformation')
         try:
@@ -181,14 +175,4 @@ class Network(Controller):
         for k, options in self.read_networks_file().items():
             if options.get('bootstrapped', ''):
                 self.deprovision(k)
-
-
-    def deregister_network(self, network_name):
-        networks = self.read_networks_file()
-
-        if network_name in networks:
-            networks.pop(network_name, '')
-            self.app.log.info('Deregistering network: %s' % network_name)
-
-        json.dump(networks, open(self.app.utils.path('networks.json'), 'w+'))
-
+    
