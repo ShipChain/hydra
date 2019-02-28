@@ -150,7 +150,7 @@ class Client(HydraHelper):
             if contract['name'] == 'dpos':
                 genesis['contracts'][i]['init']['params']['witnessCount'] = '51'
                 genesis['contracts'][i]['init']['validators'] = [
-                    {'pubkey': validator['pubkey'], 'power': '10'}
+                    {'pubKey': validator['pubkey'], 'power': '10'}
                     for ip, validator in remote_config['node_data'].items()
                 ]
         json.dump(genesis, open('genesis.json', 'w+'), indent=4)
