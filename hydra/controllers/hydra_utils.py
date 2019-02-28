@@ -158,7 +158,8 @@ class Client(HydraHelper):
         open('start_blockchain.sh', 'w+').write("""
         #!/bin/bash
         ./shipchain run --persistent-peers %s
-        """%','.join(['tcp://%s@%s:%s'%(key, ip, peer) for key, ip, peer in [] ]))
+        """%','.join(['tcp://%s@%s:46657'%(validator['nodekey'], ip)
+        for ip, validator in remote_config['node_data'].items() ]))
 
 
         self.app.log.info('Configured!')

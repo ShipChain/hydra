@@ -87,7 +87,7 @@ class Network(Controller):
                 self.app.networks.register(name, REGISTRY)
 
                 for ip in ips:
-                    self.app.log.debug('Node IP: %s'%ip)
+                    self.app.log.info('Node IP: %s'%ip)
 
                 self.app.log.info('Creation complete, pausing for a minute while the software installs...')
                 for i in range(10):
