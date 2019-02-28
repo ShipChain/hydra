@@ -57,7 +57,7 @@ def bootstrap(app, destination, version=None, destroy=False):
 
     app.log.info('Initializing Loom...')
 
-    app.utils.binary_exec(['./shipchain', 'init'])
+    app.utils.binary_exec('./shipchain', 'init')
 
     validator = json.load(open(destination + '/chaindata/config/priv_validator.json'))
 
