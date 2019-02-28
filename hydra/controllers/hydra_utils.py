@@ -1,6 +1,7 @@
 from pyfiglet import Figlet
 from colored import fg, attr
 from datetime import datetime
+import requests
 import os, subprocess, boto3, json, stat, time
 
 FIG = lambda t, f='slant': Figlet(font=f).renderText(t)
@@ -91,6 +92,8 @@ class Client(HydraHelper):
         self.app.log.info('Initializing Loom...')
 
         self.app.utils.binary_exec('./shipchain', 'init')
+        node_key = self.app.utils.binary_exec('./shipchain', 'init').stdout.strip()
+
 
         time.sleep(1) # Gotta wait a second because the priv_validator doesn't always show up
 
@@ -100,19 +103,65 @@ class Client(HydraHelper):
         self.app.log.info(validator['address'])
         self.app.log.info('Your validator public key is:')
         self.app.log.info(validator['pub_key']['value'])
+        self.app.log.info('Your node key is:')
+        self.app.log.info(node_key)
 
         self.app.log.debug('Writing hydra metadata...')
         metadata = {
             'bootstrapped': datetime.utcnow().strftime('%c'),
             'address': validator['address'],
             'pubkey': validator['pub_key']['value'],
+            'nodekey': node_key,
             'shipchain_version': version,
             'by': 'hydra-bootstrap-%s'%get_version()
         }
         json.dump(metadata, open('.bootstrap.json', 'w+'), indent=2)
 
+        self.app.log.info('Bootstrapped!')
 
-        self.app.log.info('Done!')
+    def configure(self, name, destination, version=None):
+
+        if not os.path.exists(destination):
+            return self.app.log.error('Configuring client at destination does not exist: %s'%destination)
+
+        url = '%s/networks/%s.json'%(self.app.config['hydra']['channel_url'], name)
+        try:
+            remote_config = json.loads(requests.get(url).content)
+        except Exception as e:
+            self.app.log.warning('Error getting network details from %s: %s'%(url, e))
+            return
+
+        os.chdir(destination)
+
+        cd_genesis = json.load(open('chaindata/config/genesis.json'))
+        cd_genesis['validators'] = [
+            {"name": "",
+            "power": 10,
+            "pub_key": {
+                "type": "AC26791624DE60",
+                "value": validator['pubkey']
+            }}
+            for ip, validator in remote_config['node_data'].items()
+        ]
+        json.dump(cd_genesis, open('chaindata/config/genesis.json', 'w+'), indent=4)
+        
+        genesis = json.load(open('genesis.json'))
+        for i, contract in enumerate(genesis['contracts']):
+            if contract['name'] == 'dpos':
+                genesis['contracts'][i]['init']['params']['witnessCount'] = 51
+                genesis['contracts'][i]['init']['validators'] = [
+                    {'pubkey': validator['pubkey'], 'power': '10'}
+                    for ip, validator in remote_config['node_data'].items()
+                ]
+        json.dump(genesis, open('genesis.json', 'w+'), indent=4)
+
+        open('start_blockchain.sh', 'w+').write("""
+        #!/bin/bash
+        ./shipchain run --persistent-peers %s
+        """%','.join(['tcp://%s@%s:%s'%(key, ip, peer) for key, ip, peer in [] ]))
+
+
+        self.app.log.info('Configured!')
 
 class Release(HydraHelper):
     def path(self, extrapath=''):
@@ -188,7 +237,7 @@ class Networks(HydraHelper):
     def get_boto(self):
         return boto3.Session(profile_name=self.config.get('provision', 'aws_profile'))
 
-    def add_instance(self, t, i, sg, subnet):
+    def add_instance(self, stack_name, t, i, sg, subnet):
         from troposphere import Base64, FindInMap, GetAtt, Join, Output
         from troposphere import Ref, Tags, Template
         from troposphere.ec2 import PortRange, NetworkAcl, Route, \
@@ -224,9 +273,10 @@ class Networks(HydraHelper):
                     'apt install -y -q python3-pip\n',
                     'apt remove -y -q python3-yaml\n',
                     'pip3 install cement colorlog\n',
-                    'pip3 install %s'%(
-                        self.app.config.get('provision', 'pip_install')
-                    )
+                    'pip3 install %s\n'%(
+                        self.app.config.get('provision', 'pip_install') % self.app.config['hydra']
+                    ),
+                    'su -l -c "hydra client join-network --name=%s" ubuntu\n'%stack_name
                 ])
         )
         t.add_resource(instance)

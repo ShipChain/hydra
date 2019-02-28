@@ -67,6 +67,7 @@ class Devel(Controller):
         self.app.log.info('Your validator public key is:')
         self.app.log.info(validator['pub_key']['value'])
 
+
         self.app.log.info('Writing hydra metadata...')
         metadata = {
             'bootstrapped': datetime.utcnow().strftime('%c'),

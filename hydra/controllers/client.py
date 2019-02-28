@@ -106,5 +106,44 @@ class Client(Controller):
         self.app.client.bootstrap(destination, version=version, destroy=self.app.pargs.destroy)
 
 
+    @ex(
+        arguments=[
+            (
+                ['-n', '--name'],
+                {
+                    'help': 'name of network to join',
+                    'action': 'store',
+                    'dest': 'name'
+                }
+            ),
+            (
+                ['-v', '--version'],
+                {
+                    'help': 'version of network software to run',
+                    'action': 'store',
+                    'dest': 'version'
+                }
+            ),
+            (
+                ['-d', '--destination'],
+                {
+                    'help': 'destination directory',
+                    'action': 'store',
+                    'dest': 'destination'
+                }
+            ),
+        ]
+    )
+    def configure(self):
+        if not self.app.pargs.name:
+            return self.app.log.error('You must specify a --name')
+        name = self.app.pargs.name
+        destination = self.app.pargs.destination or self.app.utils.path(name)
+
+        if not os.path.exists(destination):
+            self.app.log.error('Directory doesnt exist: %s'%destination)
+            
+        self.app.client.configure(name, destination, version=self.app.pargs.version or 'latest')
+
 
         

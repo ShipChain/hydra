@@ -126,4 +126,6 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        main()
