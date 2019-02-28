@@ -136,7 +136,7 @@ class Client(HydraHelper):
         cd_genesis = json.load(open('chaindata/config/genesis.json'))
         cd_genesis['validators'] = [
             {"name": "",
-            "power": 10,
+            "power": '10',
             "pub_key": {
                 "type": "tendermint/PubKeyEd25519",
                 "value": validator['pubkey']
