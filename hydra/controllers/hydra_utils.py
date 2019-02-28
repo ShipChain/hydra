@@ -35,7 +35,25 @@ class Utils(HydraHelper):
         return self.workdir(extrapath % self.config['hydra'])
 
     def binary_exec(self, path, *args):
-        return subprocess.run([path,]+list(args), encoding='utf-8', stderr=subprocess.PIPE)
+        return self.raw_exec(path, *args)
+    
+    def raw_exec(self, *args):
+        print('exec', args)
+        return subprocess.run(args, encoding='utf-8',
+                stderr=subprocess.PIPE, stdout=subprocess.PIPE)
+
+    def download_file(self, destination, url):
+        import requests
+        self.app.log.debug('Downloading: %s from %s'%(destination, url))
+        open(destination, 'wb+').write(requests.get(url).content)
+    
+    def download_release_file(self, destination, file, version=None):
+        host = self.config.get('hydra', 'release_url')
+        if not version:
+            url = '%s/latest/%s' % (host, file)
+        else:
+            url = '%s/archive/%s/%s' % (host, version, file)
+        return self.download_file(destination, url)
     
     def get_binary_version(self, path):
         if not os.path.exists(path):
@@ -46,26 +64,31 @@ class Utils(HydraHelper):
     def get_boto(self):
         return boto3.Session(profile_name=self.config.get('hydra', 'aws_profile'))
 
-
+class Client(HydraHelper):
+    def pip_update_hydra(self):
+        pip = self.config.get('client', 'pip_install') % self.config['hydra']
+        self.app.log.info('Updating pip from remote %s'%pip)
+        # Execvp will replace this process with the sidechain
+        os.execvp('pip3', ['pip3', 'install', pip])
 
 class Release(HydraHelper):
     def path(self, extrapath=''):
         return os.path.realpath(os.path.join(
-            self.app.utils.path(self.config['hydra']['distdir']),
+            self.app.utils.path(self.config['release']['distdir']),
             extrapath
         ))
 
     @property
     def build_binary_path(self):
-        return self.app.utils.path(self.config.get('hydra', 'build_binary_path'))
+        return self.app.utils.path(self.config.get('release', 'build_binary_path'))
 
     @property
     def dist_binary_path(self):
-        return self.app.utils.path(self.config.get('hydra', 'dist_binary_path'))
+        return self.app.utils.path(self.config.get('release', 'dist_binary_path'))
     
     @property
     def dist_bucket(self):
-        return self.config.get('hydra', 'aws_s3_dist_bucket') % self.config['hydra']
+        return self.config.get('release', 'aws_s3_dist_bucket') % self.config['hydra']
 
     def dist_exec(self, *args):
         return self.app.utils.binary_exec(self.dist_binary_path, *args)
@@ -108,9 +131,9 @@ class Troposphere(HydraHelper):
         from troposphere.ec2 import NetworkInterfaceProperty
         
         instance = ec2.Instance("node%s" % i)
-        instance.ImageId = self.app.config.get('hydra', 'aws_ec2_ami_id')
-        instance.InstanceType = self.app.config.get('hydra', 'aws_ec2_instance_type')
-        instance.KeyName = self.app.config.get('hydra', 'aws_ec2_key_name')
+        instance.ImageId = self.app.config.get('provision', 'aws_ec2_ami_id')
+        instance.InstanceType = self.app.config.get('provision', 'aws_ec2_instance_type')
+        instance.KeyName = self.app.config.get('provision', 'aws_ec2_key_name')
         instance.NetworkInterfaces = [
             NetworkInterfaceProperty(
                 GroupSet=[sg,],
@@ -127,6 +150,8 @@ class Troposphere(HydraHelper):
                     '#!/bin/bash -xe\n',
                     'apt update -y -q\n',
                     'apt install -y -q python3-pip\n',
+                    'apt remove -y -q python3-yaml\n',
+                    'pip3 install cement colorlog\n',
                     'pip3 install %s'%(
                         self.app.config.get('provision', 'hydra_source')
                     )
@@ -161,8 +186,11 @@ class Troposphere(HydraHelper):
         ref_region = Ref('AWS::Region')
         ref_stack_name = Ref('AWS::StackName')
 
-        if 'aws_vpc_id' in self.app.config['hydra']:
-            use_vpc = self.app.config['hydra']['aws_vpc_id']
+        if 'aws_vpc_id' in self.app.config['provision']:
+            use_vpc = self.app.config['provision']['aws_vpc_id']
+            use_subnet = self.app.config['provision']['aws_subnet_id']
+            use_sg = self.app.config['provision']['aws_sg_id']
+            self.app.log.info('Using your AWS subnet, make sure the routes and ports are configured correctly')
         else:
             VPC = t.add_resource(
                 VPC(
@@ -182,11 +210,6 @@ class Troposphere(HydraHelper):
                     'AttachGateway',
                     VpcId=use_vpc,
                     InternetGatewayId=Ref(internetGateway)))
-
-        if 'aws_subnet_id' in self.app.config['hydra']:
-            use_subnet = self.app.config['hydra']['aws_subnet_id']
-            self.app.log.info('Using your AWS subnet, make sure the routes and ports are configured correctly')
-        else:
 
             routeTable = t.add_resource(
                 RouteTable(
@@ -318,9 +341,6 @@ class Troposphere(HydraHelper):
                     NetworkAclId=Ref(networkAcl),
                 ))
             use_subnet = Ref(subnet)
-        if 'aws_sg_id' in self.app.config['hydra']:
-            use_sg = self.app.config['hydra']['aws_sg_id']
-        else:
 
             instanceSecurityGroup = t.add_resource(
                 SecurityGroup(

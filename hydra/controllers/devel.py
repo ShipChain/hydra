@@ -1,19 +1,20 @@
 from cement import Controller, ex
 from datetime import datetime
 from shutil import copy, rmtree
-import os, json
+import os, json, stat
 
 class Devel(Controller):
     class Meta:
         label = 'devel'
-
+        stacked_on = 'base'
+        stacked_type = 'nested'
         # text displayed at the top of --help output
         description = 'Development tools for launching local networks'
 
     def devel_exec(self, *args):
         os.chdir(self.app.devel.path())
         self.app.log.debug('Running: ./shipchain '+' '.join(args))
-        return self.app.devel.exec(self.app.config, *args)
+        return self.app.devel.exec(*args)
 
     @ex(
         help='Bootstrap a local ShipChain node for development',
@@ -36,7 +37,7 @@ class Devel(Controller):
             )
         ]
     )
-    def bootstrap_devel(self):
+    def bootstrap(self):
         dev = self.app.devel.path()
         if os.path.exists(dev):
             if not self.app.pargs.destroy:
@@ -46,7 +47,11 @@ class Devel(Controller):
 
         os.makedirs(dev)
         
-        copy(self.app.release.dist_binary_path, self.app.devel.path('shipchain'))
+        os.chdir(self.app.devel.path())
+
+        self.app.utils.download_release_file('./shipchain', 'shipchain')
+
+        os.chmod('./shipchain', os.stat('./shipchain').st_mode | stat.S_IEXEC)
         
         version = self.devel_exec('version').stderr.strip()
         self.app.log.info('Copied ShipChain binary version %s'%version)
@@ -80,6 +85,7 @@ class Devel(Controller):
             # Execvp will replace this process with the sidechain
             os.chdir(dev)
             os.execvp('./shipchain', ['./shipchain', 'run'])
+
 
 
         

@@ -6,3 +6,4 @@ pyfiglet
 colored
 boto3
 troposphere
+paramiko

@@ -5,28 +5,34 @@ from .core.exc import HydraError
 from .controllers.base import Base
 from .controllers.devel import Devel
 from .controllers.network import Network
+from .controllers.client import Client
 from .controllers import hydra_utils
 import os
 
 # configuration defaults
-CONFIG = init_defaults('hydra', 'log.logging', 'devel', 'provision')
+CONFIG = init_defaults('hydra', 'log.logging', 'release', 'devel', 'provision', 'client')
 CONFIG['hydra']['workdir'] = os.path.realpath(os.getcwd())
-CONFIG['hydra']['distdir'] = './dist'
 CONFIG['hydra']['project'] = 'shipchain'
-CONFIG['hydra']['build_binary_path'] = './loomchain/shipchain'
-CONFIG['hydra']['dist_binary_path'] = '%(distdir)s/shipchain'
-CONFIG['hydra']['aws_profile'] = 'shipchain'
-CONFIG['hydra']['aws_s3_dist_bucket'] = '%(aws_profile)s-network-dist'
-CONFIG['hydra']['aws_ec2_region'] = 'us-east-1'
-CONFIG['hydra']['aws_ec2_instance_type'] = 'm5.xlarge'
-CONFIG['hydra']['aws_ec2_ami_id'] = 'ami-0a313d6098716f372'
-CONFIG['devel']['path'] = '%(workdir)s/devel'
+CONFIG['hydra']['project_source'] = 'https://code.lwb.co/linked/hydra.git'
+CONFIG['hydra']['release_url'] = 'https://lwbco-network-dist.s3.amazonaws.com'
+CONFIG['release']['distdir'] = './dist'
+CONFIG['release']['build_binary_path'] = './loomchain/shipchain'
+CONFIG['release']['dist_binary_path'] = '%(distdir)s/shipchain'
+CONFIG['release']['aws_profile'] = 'shipchain'
+CONFIG['release']['aws_s3_dist_bucket'] = '%(aws_profile)s-network-dist'
+CONFIG['provision']['aws_profile'] = 'shipchain'
+CONFIG['provision']['aws_ec2_region'] = 'us-east-1'
+CONFIG['provision']['aws_ec2_instance_type'] = 'm5.xlarge'
+CONFIG['provision']['aws_ec2_ami_id'] = 'ami-0a313d6098716f372'
 CONFIG['provision']['hydra_source'] = 'hydra'
+CONFIG['devel']['path'] = '%(workdir)s/devel'
+CONFIG['client']['pip_install'] = 'git+%(project_source)s@master'
 
 def add_helpers(app):
     hydra_utils.Utils.register('utils', app)
     hydra_utils.Release.register('release', app)
     hydra_utils.Devel.register('devel', app)
+    hydra_utils.Client.register('client', app)
     hydra_utils.Troposphere.register('tropo', app)
     app.project = app.config.get('hydra', 'project')
 
@@ -65,7 +71,8 @@ class Hydra(App):
         handlers = [
             Base,
             Devel,
-            Network
+            Network,
+            Client
         ]
 
         hooks = [
