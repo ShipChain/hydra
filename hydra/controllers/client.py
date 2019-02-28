@@ -20,5 +20,52 @@ class Client(Controller):
     def update(self):
         self.app.client.pip_update_hydra()
 
+    @ex()
+    def bootstrap(self):
+        destination = self.app.utils.workdir('shipchain-network')
+        bootstrap(self.app, destination)
+
+
+def bootstrap(app, destination, version=None, destroy=False):
+    if os.path.exists(destination):
+        if not destroy:
+            app.log.error('Node directory exists, use -D to delete: %s'%destination)
+            return
+        rmtree(destination)
+
+    os.makedirs(destination)
+    
+    os.chdir(destination)
+
+    app.utils.download_release_file('./shipchain', 'shipchain')
+
+    os.chmod('./shipchain', os.stat('./shipchain').st_mode | stat.S_IEXEC)
+        
+    got_version = app.binary.utils.exec(['./shipchain', 'version']).stderr.strip()
+    app.log.info('Copied ShipChain binary version %s'%got_version)
+
+    app.log.info('Initializing Loom...')
+
+    app.utils.binary_exec(['./shipchain', 'init')
+
+    validator = json.load(open(destination + '/chaindata/config/priv_validator.json'))
+
+    app.log.info('Your validator address is:')
+    app.log.info(validator['address'])
+    app.log.info('Your validator public key is:')
+    app.log.info(validator['pub_key']['value'])
+
+    app.log.info('Writing hydra metadata...')
+    metadata = {
+        'bootstrapped': datetime.utcnow().strftime('%c'),
+        'address': validator['address'],
+        'pubkey': validator['pub_key']['value'],
+        'shipchain_version': version,
+        'by': 'hydra-bootstrap-devel'
+    }
+    json.dump(metadata, open(destination + '/.bootstrap.json', 'w+'), indent=2)
+
+
+    app.log.info('Done!')
 
         

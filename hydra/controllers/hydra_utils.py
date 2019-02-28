@@ -38,7 +38,6 @@ class Utils(HydraHelper):
         return self.raw_exec(path, *args)
     
     def raw_exec(self, *args):
-        print('exec', args)
         return subprocess.run(args, encoding='utf-8',
                 stderr=subprocess.PIPE, stdout=subprocess.PIPE)
 

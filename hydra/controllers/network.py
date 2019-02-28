@@ -120,8 +120,6 @@ class Network(Controller):
             self.run_command(ip, self.app.pargs.cmd)
 
     def run_command(self, ip, cmd):    
-
-
         KEY = os.path.expanduser('~/.ssh/%s.pem'%
             self.app.config.get('provision', 'aws_ec2_key_name'))
 
@@ -129,6 +127,8 @@ class Network(Controller):
         client.set_missing_host_key_policy(paramiko.client.AutoAddPolicy)
         client.connect(ip, username='ubuntu', key_filename=KEY)
         stdin, stdout, stderr = client.exec_command(cmd or 'ls')
+        for line in stderr:
+            print('... ' + line.strip('\n'))
         for line in stdout:
             print('... ' + line.strip('\n'))
         client.close() 
