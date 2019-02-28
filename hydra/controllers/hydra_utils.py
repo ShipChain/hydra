@@ -92,7 +92,7 @@ class Client(HydraHelper):
         self.app.log.info('Initializing Loom...')
 
         self.app.utils.binary_exec('./shipchain', 'init')
-        node_key = self.app.utils.binary_exec('./shipchain', 'init').stdout.strip()
+        node_key = self.app.utils.binary_exec('./shipchain', 'nodekey').stdout.strip()
 
 
         time.sleep(1) # Gotta wait a second because the priv_validator doesn't always show up
