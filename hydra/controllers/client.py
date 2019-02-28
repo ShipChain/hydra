@@ -20,10 +20,21 @@ class Client(Controller):
     def update(self):
         self.app.client.pip_update_hydra()
 
-    @ex()
+    @ex(
+        arguments= [
+            (
+                ['-D', '--destroy'],
+                {
+                    'help': 'destroy existing directory',
+                    'action': 'store_true',
+                    'dest': 'destroy'
+                }
+            ),
+        ]
+    )
     def bootstrap(self):
         destination = self.app.utils.workdir('shipchain-network')
-        bootstrap(self.app, destination)
+        bootstrap(self.app, destination, destroy=self.app.pargs.destroy)
 
 
 def bootstrap(app, destination, version=None, destroy=False):
@@ -41,7 +52,7 @@ def bootstrap(app, destination, version=None, destroy=False):
 
     os.chmod('./shipchain', os.stat('./shipchain').st_mode | stat.S_IEXEC)
         
-    got_version = app.binary.utils.exec(['./shipchain', 'version']).stderr.strip()
+    got_version = app.utils.binary_exec(['./shipchain', 'version']).stderr.strip()
     app.log.info('Copied ShipChain binary version %s'%got_version)
 
     app.log.info('Initializing Loom...')
