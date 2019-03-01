@@ -1,3 +1,11 @@
+<p align="center">
+  <img src="https://shipchain.io/img/logo.png" alt="ShipChain"/>
+</p>
+
+
+[![License](http://img.shields.io/:license-apache-blue.svg)](http://www.apache.org/licenses/LICENSE-2.0.html)
+[![Chat](https://img.shields.io/badge/gitter-ShipChain/lobby-green.svg)](https://gitter.im/ShipChain/Lobby)
+
 # Hydra manages many heads of networks
 
 ## Installation
