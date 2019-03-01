@@ -14,13 +14,13 @@ CONFIG = init_defaults('hydra', 'log.logging', 'release', 'devel', 'provision', 
 CONFIG['hydra']['workdir'] = os.path.realpath(os.getcwd())
 CONFIG['hydra']['project'] = 'shipchain'
 CONFIG['hydra']['binary_name'] = '%(project)s'
-CONFIG['hydra']['project_source'] = 'https://code.lwb.co/linked/hydra.git'
-CONFIG['hydra']['channel_url'] = 'https://lwbco-network-dist.s3.amazonaws.com'
+CONFIG['hydra']['project_source'] = 'https://github.com/shipchain/hydra.git'
+CONFIG['hydra']['channel_url'] = 'https://shipchain-network-dist.s3.amazonaws.com'
 CONFIG['log.logging']['level'] = 'debug'
 CONFIG['release']['distdir'] = './dist'
 CONFIG['release']['build_binary_path'] = './loomchain/shipchain'
 CONFIG['release']['aws_profile'] = None
-CONFIG['release']['aws_s3_dist_bucket'] = '%(project)s-network-dist'
+CONFIG['release']['aws_s3_dist_bucket'] = 'shipchain-network-dist'
 CONFIG['provision']['aws_profile'] = None
 CONFIG['provision']['aws_ec2_region'] = 'us-east-1'
 CONFIG['provision']['aws_ec2_instance_type'] = 'm5.xlarge'
@@ -37,7 +37,7 @@ def add_helpers(app):
     hydra_utils.Networks.attach('networks', app)
     app.project = app.config.get('hydra', 'project')
 
-        
+
 
 class Hydra(App):
     """ShipChain Network Hydra Manager primary application."""
@@ -93,13 +93,13 @@ class HydraTest(TestApp,Hydra):
 def main():
 
     with Hydra() as app:
-        app.config_file = os.path.expanduser('~/.hydra.yml') 
+        app.config_file = os.path.expanduser('~/.hydra.yml')
 
         if not os.path.exists(app.config_file):
             print('First run: Generating ~/.hydra.yml config...')
             from yaml import dump
             open(app.config_file, 'w+').write(
-                dump({'hydra': CONFIG['hydra']}, indent=4)) 
+                dump({'hydra': CONFIG['hydra']}, indent=4))
         try:
             app.run()
 
