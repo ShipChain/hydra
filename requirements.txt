@@ -8,3 +8,4 @@ boto3
 troposphere
 paramiko
 toml
+libtmux

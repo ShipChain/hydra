@@ -47,7 +47,6 @@ class ClientHelper(HydraHelper):
         self.app.utils.binary_exec('./shipchain', 'init')
         node_key = self.app.utils.binary_exec('./shipchain', 'nodekey').stdout.strip()
 
-
         time.sleep(1) # Gotta wait a second because the priv_validator doesn't always show up
 
         validator = json.load(open('chaindata/config/priv_validator.json'))
