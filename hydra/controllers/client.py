@@ -1,7 +1,10 @@
 from cement import Controller, ex
 from datetime import datetime
 from shutil import copy, rmtree
-import os, json, stat
+import os
+import json
+import stat
+
 
 class Client(Controller):
     class Meta:
@@ -42,8 +45,7 @@ class Client(Controller):
 
         cfg['hydra']['channel_url'] = self.app.pargs.url
 
-        open(self.app.config_file, 'w+').write(dump(cfg, indent=4)) 
-
+        open(self.app.config_file, 'w+').write(dump(cfg, indent=4))
 
     @ex(
         arguments=[
@@ -89,22 +91,25 @@ class Client(Controller):
 
         if os.path.exists(destination):
             if not self.app.pargs.destroy:
-                self.app.log.error('Node directory exists, use -D to delete: %s'%destination)
+                self.app.log.error(
+                    'Node directory exists, use -D to delete: %s' % destination)
                 return
             rmtree(destination)
 
         if not self.app.pargs.version:
-            url = '%s/networks/%s.json'%(self.app.config['hydra']['channel_url'], name)
+            url = '%s/networks/%s.json' % (
+                self.app.config['hydra']['channel_url'], name)
             try:
                 remote_config = json.loads(requests.get(url).content)
                 version = remote_config['binary_version']
             except:
                 remote_config = None
-                self.app.log.warning('Error getting network version details from %s, using "latest"'%url)
+                self.app.log.warning(
+                    'Error getting network version details from %s, using "latest"' % url)
                 version = "latest"
 
-        self.app.client.bootstrap(destination, version=version, destroy=self.app.pargs.destroy)
-
+        self.app.client.bootstrap(
+            destination, version=version, destroy=self.app.pargs.destroy)
 
     @ex(
         arguments=[
@@ -141,9 +146,7 @@ class Client(Controller):
         destination = self.app.pargs.destination or self.app.utils.path(name)
 
         if not os.path.exists(destination):
-            self.app.log.error('Directory doesnt exist: %s'%destination)
-            
-        self.app.client.configure(name, destination, version=self.app.pargs.version or 'latest')
+            self.app.log.error('Directory doesnt exist: %s' % destination)
 
-
-        
+        self.app.client.configure(
+            name, destination, version=self.app.pargs.version or 'latest')

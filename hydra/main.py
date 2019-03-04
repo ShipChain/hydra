@@ -1,4 +1,3 @@
-
 from cement import App, TestApp, init_defaults
 from cement.core.exc import CaughtSignal
 from .core.exc import HydraError
@@ -6,11 +5,17 @@ from .controllers.base import Base
 from .controllers.devel import Devel
 from .controllers.network import Network
 from .controllers.client import Client
+from .helpers.client import ClientHelper
+from .helpers.devel import DevelHelper
+from .helpers import UtilsHelper
+from .helpers.networks import NetworksHelper
+from .helpers.release import ReleaseHelper
 from .controllers import hydra_utils
 import os
 
 # configuration defaults
-CONFIG = init_defaults('hydra', 'log.logging', 'release', 'devel', 'provision', 'client')
+CONFIG = init_defaults('hydra', 'log.logging', 'release',
+                       'devel', 'provision', 'client')
 CONFIG['hydra']['workdir'] = os.path.realpath(os.getcwd())
 CONFIG['hydra']['project'] = 'shipchain'
 CONFIG['hydra']['binary_name'] = '%(project)s'
@@ -29,14 +34,14 @@ CONFIG['provision']['pip_install'] = 'git+%(project_source)s@master'
 CONFIG['devel']['path'] = '%(workdir)s/devel'
 CONFIG['client']['pip_install'] = 'git+%(project_source)s@master'
 
-def add_helpers(app):
-    hydra_utils.Utils.attach('utils', app)
-    hydra_utils.Release.attach('release', app)
-    hydra_utils.Devel.attach('devel', app)
-    hydra_utils.Client.attach('client', app)
-    hydra_utils.Networks.attach('networks', app)
-    app.project = app.config.get('hydra', 'project')
 
+def add_helpers(app):
+    UtilsHelper.attach('utils', app)
+    ReleaseHelper.attach('release', app)
+    DevelHelper.attach('devel', app)
+    ClientHelper.attach('client', app)
+    NetworksHelper.attach('networks', app)
+    app.project = app.config.get('hydra', 'project')
 
 
 class Hydra(App):
@@ -83,7 +88,7 @@ class Hydra(App):
         ]
 
 
-class HydraTest(TestApp,Hydra):
+class HydraTest(TestApp, Hydra):
     """A sub-class of Hydra that is better suited for testing."""
 
     class Meta:

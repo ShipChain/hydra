@@ -7,7 +7,7 @@ from colored import fg, attr
 from collections import OrderedDict
 from shutil import copy
 from datetime import datetime
-from .hydra_utils import (
+from ..helpers import (
     FIG, SHIP, BLUE, RESET, HYDRA
 )
 import os, subprocess, boto3, glob, json
