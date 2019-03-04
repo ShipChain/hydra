@@ -6,6 +6,8 @@ from troposphere.ec2 import NetworkInterfaceProperty
 import os, json, uuid, time
 import paramiko
 import io
+import glob
+
 class Network(Controller):
     class Meta:
         label = 'network'
@@ -32,6 +34,14 @@ class Network(Controller):
                     'help': 'the number of new nodes to launch',
                     'action': 'store',
                     'dest': 'size'
+                }
+            ),
+            (
+                ['--set-default'],
+                {
+                    'help': 'save as default in .hydra_network',
+                    'action': 'store_true',
+                    'dest': 'default'
                 }
             ),
         ]
@@ -79,6 +89,9 @@ class Network(Controller):
                     stack.delete()
                 return
             if stack.stack_status == 'CREATE_COMPLETE':
+                if(self.app.pargs.default):
+                    with open(self.app.utils.path('.hydra_network'), 'w+') as fh:
+                        fh.write(name)
                 
                 outputs = {o['OutputKey']: o['OutputValue'] for o in stack.outputs}
                 ips = [outputs['IP%s'%i] for i in range(size)]
@@ -120,8 +133,9 @@ class Network(Controller):
         ]
     )
     def ssh_first_node(self):
+        name = self.app.utils.env_or_arg('name', 'HYDRA_NETWORK', or_path='.hydra_network')
         networks = self.app.networks.read_networks_file()
-        ip = networks[self.app.pargs.name or list(networks.keys())[0]]['ips'][0]
+        ip = networks[name or list(networks.keys())[0]]['ips'][0]
         os.execvp('ssh', ['ssh', 'ubuntu@%s'%ip])
         
     @ex(
@@ -146,36 +160,15 @@ class Network(Controller):
         ]
     )
     def run_on_all_nodes(self):
+        name = self.app.utils.env_or_arg('name', 'HYDRA_NETWORK', or_path='.hydra_network')
         networks = self.app.networks.read_networks_file()
 
-        for ip in networks[self.app.pargs.name]['ips']:
-            self.run_command(ip, self.app.pargs.cmd)
+        for ip in networks[name]['ips']:
+            self.app.networks.run_command(ip, self.app.pargs.cmd)
 
-    def run_command(self, ip, cmd):    
-        import warnings
-        DEFAULT_KEY = '~/.ssh/%(aws_ec2_key_name)s.pem'
-        provision = self.app.config['provision']
-        KEY = os.path.expanduser(
-            'aws_ec2_key_path' in provision and
-            provision['aws_ec2_key_path'] % provision or
-            DEFAULT_KEY % provision
-        )
-
-        self.app.log.info('Running on %s: %s' % (ip, cmd))
-        self.app.log.debug('Using keyfile: %s' % KEY)
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
-            client = paramiko.SSHClient()
-            client.set_missing_host_key_policy(paramiko.client.AutoAddPolicy)
-            client.connect(ip, username='ubuntu', key_filename=KEY)
-            stdin, stdout, stderr = client.exec_command(cmd or 'ls')
-            output = ''.join(line for line in stdout)
-            client.close()
-            self.app.log.debug('Output: %s' % output)
-            return output
 
     def get_bootstrap_data(self, ip, network_name):
-        return json.loads(self.run_command(ip, 'cat %s/.bootstrap.json'%network_name))
+        return json.loads(self.app.networks.run_command(ip, 'cat %s/.bootstrap.json'%network_name))
 
     def deprovision(self, network_name):
         self.app.log.info('Deleting network: %s' % network_name)
@@ -214,21 +207,24 @@ class Network(Controller):
             ),
         ])
     def publish(self):
+        name = self.app.utils.env_or_arg('name', 'HYDRA_NETWORK', or_path='.hydra_network')
         networks = self.app.networks.read_networks_file()
-        if not self.app.pargs.name in networks:
+        if not name in networks:
             return self.app.log.error('You must choose a valid network name: %s'%networks.keys())
-        
-        network = networks[self.app.pargs.name]
+        network = networks[name]
         network['version'] = self.app.pargs.version or 'latest'
         os.chdir(self.app.utils.path())
-        os.makedirs('./networks/', exist_ok=True)
-        local_fn = 'networks/%s.json'%self.app.pargs.name
+        os.makedirs('./networks/%s'%name, exist_ok=True)
+        self.app.networks.bootstrap_config(name)
+        
+        local_fn = 'networks/%s/hydra.json'%name
         open(local_fn, 'w+').write(json.dumps(network))
         s3 = self.app.release.get_boto().resource('s3')
-        self.app.log.info('Publishing network %s' % self.app.pargs.name)
-        self.app.log.debug('Uploading: networks/%s.json to S3' % (local_fn))
-        s3.Bucket(self.app.release.dist_bucket).upload_file(
-            Filename=local_fn, Key=local_fn, ExtraArgs={'ACL':'public-read'})
+        self.app.log.info('Publishing network %s' % name)
+        for local_fn in glob.glob('networks/**'):
+            self.app.log.debug('Uploading: networks/%s/hydra.json to S3' % (local_fn))
+            s3.Bucket(self.app.release.dist_bucket).upload_file(
+                Filename=local_fn, Key=local_fn, ExtraArgs={'ACL':'public-read'})
 
     @ex( help='configure',
         arguments= [
@@ -243,10 +239,10 @@ class Network(Controller):
         ])
     def configure(self):
         networks = self.app.networks.read_networks_file()
-        name = self.app.pargs.name
+        name = self.app.utils.env_or_arg('name', 'HYDRA_NETWORK', or_path='.hydra_network')
         if not name in networks:
             return self.app.log.error('You must choose a valid network name: %s'%networks.keys())
         
         for ip in networks[name]['ips']:
-            self.run_command(ip, "hydra client configure --name=%s"%name)
+            self.app.networks.run_command(ip, "hydra client configure --name=%s"%name)
     

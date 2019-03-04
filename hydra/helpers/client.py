@@ -3,16 +3,19 @@ import os
 import stat
 import subprocess
 import time
+import sys
 from datetime import datetime
 from shutil import rmtree
 
 import boto3
 import requests
+
 from colored import attr, fg
 from pyfiglet import Figlet
 from hydra.core.version import get_version
 
 from . import HydraHelper
+
 
 class ClientHelper(HydraHelper):
     def pip_update_hydra(self):
@@ -69,51 +72,60 @@ class ClientHelper(HydraHelper):
 
         self.app.log.info('Bootstrapped!')
 
-    def configure(self, name, destination, version=None):
+    def configure(self, name, destination, version=None, peers=None):
 
         if not os.path.exists(destination):
             return self.app.log.error('Configuring client at destination does not exist: %s'%destination)
 
-        url = '%s/networks/%s.json'%(self.app.config['hydra']['channel_url'], name)
+        if not peers:
+        # Get the published peering data
+            url = '%s/networks/%s/hydra.json'%(self.app.config['hydra']['channel_url'], name)
+            try:
+                remote_config = json.loads(requests.get(url).content)
+            except Exception as e:
+                self.app.log.warning('Error getting network details from %s: %s'%(url, e))
+                return
+            peers = [(ip, validator['pubkey'], validator['nodekey'])
+                    for ip, validator in remote_config['node_data'].items()]
+
+        os.chdir(destination)
+
+        # CHAINDATA/CONFIG/GENESIS.json
+
+        url = '%s/networks/%s/chaindata/config/genesis.json'%(self.app.config['hydra']['channel_url'], name)
         try:
-            remote_config = json.loads(requests.get(url).content)
+            cd_genesis = json.loads(requests.get(url).content)
         except Exception as e:
             self.app.log.warning('Error getting network details from %s: %s'%(url, e))
             return
 
-        os.chdir(destination)
-
-        cd_genesis = json.load(open('chaindata/config/genesis.json'))
-        cd_genesis['genesis_time'] = "1970-01-01T00:00:00Z"
-        cd_genesis['validators'] = [
-            {"name": "",
-            "power": '10',
-            "pub_key": {
-                "type": "tendermint/PubKeyEd25519",
-                "value": validator['pubkey']
-            }}
-            for ip, validator in remote_config['node_data'].items()
-        ]
         json.dump(cd_genesis, open('chaindata/config/genesis.json', 'w+'), indent=4)
-        
-        genesis = json.load(open('genesis.json'))
-        for i, contract in enumerate(genesis['contracts']):
-            if contract['name'] == 'dpos':
-                genesis['contracts'][i]['init']['params']['witnessCount'] = '51'
-                genesis['contracts'][i]['init']['validators'] = [
-                    {'pubKey': validator['pubkey'], 'power': '10'}
-                    for ip, validator in remote_config['node_data'].items()
-                ]
+
+        # GENESIS.json
+
+        url = '%s/networks/%s/genesis.json'%(self.app.config['hydra']['channel_url'], name)
+        try:
+            genesis = json.loads(requests.get(url).content)
+        except Exception as e:
+            self.app.log.warning('Error getting network details from %s: %s'%(url, e))
+            return
+
         json.dump(genesis, open('genesis.json', 'w+'), indent=4)
-        node_key = self.app.utils.binary_exec('./shipchain', 'nodekey').stdout.strip()
+
+        this_node_key = self.app.utils.binary_exec('./shipchain', 'nodekey').stdout.strip()
+
+        # CONFIG.TOML
+        #open()
+
+        # START_BLOCKCHAIN.sh
 
         open('start_blockchain.sh', 'w+').write("""#!/bin/bash\n./shipchain run --persistent-peers %s"""
             %
                 ','.join(
                     [
-                        'tcp://%s@%s:46656'%(validator['nodekey'], ip)
-                        for ip, validator in remote_config['node_data'].items()
-                        if(validator['nodekey']) != node_key
+                        'tcp://%s@%s:46656'%(nodekey, ip)
+                        for ip, pubkey, nodekey in peers
+                        if nodekey != this_node_key
             ]))
 
 

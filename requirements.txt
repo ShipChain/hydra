@@ -7,4 +7,4 @@ colored
 boto3
 troposphere
 paramiko
-libtmux
+toml

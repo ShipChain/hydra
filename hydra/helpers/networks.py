@@ -1,4 +1,6 @@
 import json
+import os
+import paramiko
 from . import HydraHelper
 import boto3
 
@@ -24,6 +26,68 @@ class NetworksHelper(HydraHelper):
             self.app.log.info('Deregistering network: %s' % network_name)
 
         json.dump(networks, open(self.app.utils.path('networks.json'), 'w+'))
+    
+    def run_command(self, ip, cmd):    
+        import warnings
+        DEFAULT_KEY = '~/.ssh/%(aws_ec2_key_name)s.pem'
+        provision = self.app.config['provision']
+        KEY = os.path.expanduser(
+            'aws_ec2_key_path' in provision and
+            provision['aws_ec2_key_path'] % provision or
+            DEFAULT_KEY % provision
+        )
+
+        self.app.log.info('Running on %s: %s' % (ip, cmd))
+        self.app.log.debug('Using keyfile: %s' % KEY)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            client = paramiko.SSHClient()
+            client.set_missing_host_key_policy(paramiko.client.AutoAddPolicy)
+            client.connect(ip, username='ubuntu', key_filename=KEY)
+            stdin, stdout, stderr = client.exec_command(cmd or 'ls')
+            output = ''.join(line for line in stdout)
+            client.close()
+            self.app.log.debug('Output: %s' % output)
+            return output
+
+    def bootstrap_config(self, network_name):
+        networks = self.read_networks_file()
+        network = networks[network_name]
+        folder = 'networks/%s'%network_name
+
+        def open_first_file(fn):
+            ip = network['ips'][0]
+            return self.run_command(ip, "cat %s"%fn)
+
+        peers = [(ip, validator['pubkey'], validator['nodekey'])
+                for ip, validator in network['node_data']]
+
+
+        cd_genesis = json.load(open_first_file('chaindata/config/genesis.json'))
+        cd_genesis['genesis_time'] = "1970-01-01T00:00:00Z"
+        cd_genesis['validators'] = [
+            {"name": "",
+            "power": '1000',
+            "pub_key": {
+                "type": "tendermint/PubKeyEd25519",
+                "value": pubkey
+            }}
+            for ip, pubkey, nodekey in peers
+        ]
+        json.dump(cd_genesis, open('%s/chaindata/config/genesis.json'%folder, 'w+'), indent=4)
+
+        # GENESIS.json
+
+        genesis = json.load(open('genesis.json'))
+        for i, contract in enumerate(genesis['contracts']):
+            if contract['name'] == 'dpos':
+                genesis['contracts'][i]['init']['params']['witnessCount'] = '51'
+                genesis['contracts'][i]['init']['validators'] = [
+                    {'pubKey': pubkey, 'power': '1000'}
+                    for ip, pubkey, nodekey in peers
+                ]
+        json.dump(genesis, open('%s/genesis.json'%folder, 'w+'), indent=4)
+        
 
     def get_boto(self):
         return boto3.Session(profile_name=self.config.get('provision', 'aws_profile'))

@@ -81,14 +81,22 @@ class Client(Controller):
                     'dest': 'destination'
                 }
             ),
+            (
+                ['--set-default'],
+                {
+                    'help': 'save as default in .hydra_network',
+                    'action': 'store_true',
+                    'dest': 'default'
+                }
+            ),
         ]
     )
     def join_network(self):
-        if not self.app.pargs.name:
-            return self.app.log.error('You must specify a --name')
-        name = self.app.pargs.name
+        name = self.app.utils.env_or_arg('name', 'HYDRA_NETWORK', or_path='.hydra_network', required=True)
         destination = self.app.pargs.destination or self.app.utils.path(name)
-
+        if(self.app.pargs.default):
+            with open(self.app.utils.path('.hydra_network'), 'w+') as fh:
+                fh.write(name)
         if os.path.exists(destination):
             if not self.app.pargs.destroy:
                 self.app.log.error(
@@ -110,6 +118,7 @@ class Client(Controller):
 
         self.app.client.bootstrap(
             destination, version=version, destroy=self.app.pargs.destroy)
+            
 
     @ex(
         arguments=[
@@ -140,9 +149,7 @@ class Client(Controller):
         ]
     )
     def configure(self):
-        if not self.app.pargs.name:
-            return self.app.log.error('You must specify a --name')
-        name = self.app.pargs.name
+        name = self.app.utils.env_or_arg('name', 'HYDRA_NETWORK', or_path='.hydra_network', required=True)
         destination = self.app.pargs.destination or self.app.utils.path(name)
 
         if not os.path.exists(destination):
