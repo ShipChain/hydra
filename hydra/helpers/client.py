@@ -84,7 +84,7 @@ class ClientHelper(HydraHelper):
         os.chdir(destination)
 
         cd_genesis = json.load(open('chaindata/config/genesis.json'))
-        cd_genesis['genesis']
+        cd_genesis['genesis_time'] = "1970-01-01T00:00:00Z"
         cd_genesis['validators'] = [
             {"name": "",
             "power": '10',
