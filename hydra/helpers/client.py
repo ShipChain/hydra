@@ -6,6 +6,7 @@ import time
 import sys
 from datetime import datetime
 from shutil import rmtree
+from collections import OrderedDict
 
 import boto3
 import requests
@@ -23,6 +24,42 @@ class ClientHelper(HydraHelper):
         self.app.log.info('Updating pip from remote %s'%pip)
         # Execvp will replace this process with the sidechain
         os.execvp('pip3', ['pip3', 'install', pip])
+
+    def install_systemd(self, name, destination, user='ubuntu'):
+        import toml
+        systemd = OrderedDict([
+            ('Unit', OrderedDict([
+                ('Description', '%s Loom Node' % name),
+                ('After', 'network.target'),
+            ])),
+            ('Service', OrderedDict([
+                ('Type', 'simple'),
+                ('User', user),
+                ('WorkingDirectory', destination),
+                ('ExecStart', '%s/start_blockchain.sh' % destination),
+                ('Restart', 'always'),
+                ('RestartSec', 2),
+                ('StartLimitInterval', 0),
+                ('LimitNOFILE', 500000),
+                ('StandardOutput', 'syslog'),
+                ('StandardError', 'syslog'),
+            ])),
+            ('Install', OrderedDict([
+                ('WantedBy', 'multi-user.target'),
+            ])),
+        ])
+        local_fn = '%s.service' % name
+        self.app.log.info('Writing to %s' % (local_fn))
+
+        with open(local_fn, 'w+') as fh:
+            fh.write(toml.dumps(systemd).replace('"', '').replace(' = ', '='))
+        
+        fn = '/etc/systemd/system/%s.service' % name
+        self.app.log.info('Installing %s as %s' % (fn, user))
+        self.app.utils.binary_exec('sudo', 'cp', local_fn, fn)
+        self.app.utils.binary_exec('sudo', 'chown', 'root:root', fn)
+        self.app.utils.binary_exec('sudo', 'sytemctl', 'daemon-reload')
+        self.app.utils.binary_exec('sudo', 'sytemctl', 'start', '%s.service'%name)
     
     def bootstrap(self, destination, version=None, destroy=False):
         if os.path.exists(destination):

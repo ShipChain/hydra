@@ -132,7 +132,7 @@ class NetworksHelper(HydraHelper):
                     'pip3 install %s\n'%(
                         self.app.config.get('provision', 'pip_install') % self.app.config['hydra']
                     ),
-                    'su -l -c "hydra client join-network --name=%s" ubuntu\n'%stack_name
+                    'su -l -c "hydra client join-network --name=%s --set-default --install" ubuntu\n'%stack_name
                 ])
         )
         t.add_resource(instance)

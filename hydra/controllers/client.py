@@ -89,6 +89,14 @@ class Client(Controller):
                     'dest': 'default'
                 }
             ),
+            (
+                ['--install'],
+                {
+                    'help': 'install systemd service for the network',
+                    'action': 'store_true',
+                    'dest': 'install'
+                }
+            ),
         ]
     )
     def join_network(self):
@@ -119,7 +127,9 @@ class Client(Controller):
         self.app.client.bootstrap(
             destination, version=version, destroy=self.app.pargs.destroy)
             
-
+        if self.app.pargs.install:
+            self.app.client.install_systemd(name, destination, 
+                user=self.app.utils.binary_exec('whoami').stdout.strip())
     @ex(
         arguments=[
             (
@@ -146,6 +156,14 @@ class Client(Controller):
                     'dest': 'destination'
                 }
             ),
+            (
+                ['--install'],
+                {
+                    'help': 'install systemd service for the network',
+                    'action': 'store_true',
+                    'dest': 'install'
+                }
+            ),
         ]
     )
     def configure(self):
@@ -157,3 +175,7 @@ class Client(Controller):
 
         self.app.client.configure(
             name, destination, version=self.app.pargs.version or 'latest')
+
+        if self.app.pargs.install:
+            self.app.client.install_systemd(name, destination, 
+                user=self.app.utils.binary_exec('whoami').stdout.strip())
