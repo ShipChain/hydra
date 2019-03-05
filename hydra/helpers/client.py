@@ -10,6 +10,7 @@ from collections import OrderedDict
 
 import boto3
 import requests
+import toml
 
 from colored import attr, fg
 from pyfiglet import Figlet
