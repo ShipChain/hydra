@@ -121,10 +121,10 @@ class Base(Controller):
         bucket = self.release.dist_bucket
         version = self.release.get_dist_version()
         
-        session = self.utils.get_boto()
+        session = self.release.get_boto()
         s3 = session.resource('s3')
         self.app.log.info('Uploading distribution to S3: %s @ %s' %
-            (bucket, self.app.config.get('hydra', 'aws_profile')))
+            (bucket, self.app.config.get('release', 'aws_profile')))
 
         self.app.log.debug('Making bucket: %s' % bucket)
         

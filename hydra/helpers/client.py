@@ -118,7 +118,8 @@ class ClientHelper(HydraHelper):
 
         # START_BLOCKCHAIN.sh
 
-        open('start_blockchain.sh', 'w+').write("""#!/bin/bash\n./shipchain run --persistent-peers %s"""
+        open('start_blockchain.sh', 'w+').write(
+            "#!/bin/bash\n./shipchain run --persistent-peers %s\n"
             %
                 ','.join(
                     [
@@ -127,5 +128,6 @@ class ClientHelper(HydraHelper):
                         if nodekey != this_node_key
             ]))
 
+        os.chmod('./start_blockchain.sh', os.stat('./start_blockchain.sh').st_mode | stat.S_IEXEC)
 
         self.app.log.info('Configured!')

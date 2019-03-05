@@ -44,7 +44,7 @@ class NetworksHelper(HydraHelper):
             client = paramiko.SSHClient()
             client.set_missing_host_key_policy(paramiko.client.AutoAddPolicy)
             client.connect(ip, username='ubuntu', key_filename=KEY)
-            stdin, stdout, stderr = client.exec_command(cmd or 'ls')
+            stdin, stdout, stderr = client.exec_command(cmd)
             output = ''.join(line for line in stdout)
             client.close()
             self.app.log.debug('Output: %s' % output)
@@ -57,13 +57,14 @@ class NetworksHelper(HydraHelper):
 
         def open_first_file(fn):
             ip = network['ips'][0]
-            return self.run_command(ip, "cat %s"%fn)
+            output = self.run_command(ip, "cat %s/%s"%(network_name, fn))
+            return output
 
         peers = [(ip, validator['pubkey'], validator['nodekey'])
-                for ip, validator in network['node_data']]
+                for ip, validator in network['node_data'].items()]
 
-
-        cd_genesis = json.load(open_first_file('chaindata/config/genesis.json'))
+        os.makedirs('networks/%s/chaindata/config/'%network_name, exist_ok=True)
+        cd_genesis = json.loads(open_first_file('chaindata/config/genesis.json'))
         cd_genesis['genesis_time'] = "1970-01-01T00:00:00Z"
         cd_genesis['validators'] = [
             {"name": "",
@@ -78,7 +79,7 @@ class NetworksHelper(HydraHelper):
 
         # GENESIS.json
 
-        genesis = json.load(open('genesis.json'))
+        genesis = json.loads(open_first_file('genesis.json'))
         for i, contract in enumerate(genesis['contracts']):
             if contract['name'] == 'dpos':
                 genesis['contracts'][i]['init']['params']['witnessCount'] = '51'

@@ -221,8 +221,9 @@ class Network(Controller):
         open(local_fn, 'w+').write(json.dumps(network))
         s3 = self.app.release.get_boto().resource('s3')
         self.app.log.info('Publishing network %s' % name)
-        for local_fn in glob.glob('networks/**'):
-            self.app.log.debug('Uploading: networks/%s/hydra.json to S3' % (local_fn))
+        for fn in ['chaindata/config/genesis.json', 'hydra.json', 'genesis.json']:
+            local_fn = 'networks/%s/%s'%(name, fn)
+            self.app.log.debug('Uploading: %s to S3' % (local_fn))
             s3.Bucket(self.app.release.dist_bucket).upload_file(
                 Filename=local_fn, Key=local_fn, ExtraArgs={'ACL':'public-read'})
 
