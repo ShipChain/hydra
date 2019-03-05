@@ -52,6 +52,7 @@ class ClientHelper(HydraHelper):
         self.app.log.info('Writing to %s' % (local_fn))
 
         with open(local_fn, 'w+') as fh:
+            # SystemD is just terse TOML - CHANGE MY MIND
             fh.write(toml.dumps(systemd).replace('"', '').replace(' = ', '='))
         
         fn = '/etc/systemd/system/%s.service' % name
@@ -108,7 +109,8 @@ class ClientHelper(HydraHelper):
 
         self.app.log.info('Bootstrapped!')
 
-    def configure(self, name, destination, version=None, peers=None):
+    def configure(self, name, destination, version=None, peers=None,
+                    pex=True, address_book_strict=False, private_peers=False):
 
         if not os.path.exists(destination):
             return self.app.log.error('Configuring client at destination does not exist: %s'%destination)
@@ -151,10 +153,33 @@ class ClientHelper(HydraHelper):
         this_node_key = self.app.utils.binary_exec('./shipchain', 'nodekey').stdout.strip()
 
         # CONFIG.TOML
-        #open()
+        config = toml.load(open('chaindata/config/config.toml', 'r'))
+        self.app.log.info('Editing config.toml: p2p.pex = %s' % pex)
+        config['p2p']['pex'] = pex
 
+        self.app.log.info('Editing config.toml: p2p.address_book_strict = %s' % address_book_strict)
+        config['p2p']['address_book_strict'] = address_book_strict
+
+        private_peers = private_peers and ','.join(
+            [nodekey for ip, pub, nodekey in peers]) or ''
+        self.app.log.info('Editing config.toml: p2p.private_peer_ids = %s' % private_peers)
+        config['p2p']['private_peer_ids'] = private_peers
+
+        proxy_app = 'tcp://0.0.0.0:46658'
+        self.app.log.info('Editing config.toml: proxy_app = %s' % proxy_app)
+        config['proxy_app'] = proxy_app
+
+        rpc_laddr = 'tcp://0.0.0.0:46657'
+        self.app.log.info('Editing config.toml: rpc.laddr = %s' % rpc_laddr)
+        config['rpc']['laddr'] = rpc_laddr
+        
+        p2p_laddr = 'tcp://0.0.0.0:46656'
+        self.app.log.info('Editing config.toml: p2p.laddr = %s' % p2p_laddr)
+        config['p2p']['laddr'] = p2p_laddr
+
+        toml.dump(open('chaindata/config/config.toml', 'w'), config)
+        
         # START_BLOCKCHAIN.sh
-
         open('start_blockchain.sh', 'w+').write(
             "#!/bin/bash\n./shipchain run --persistent-peers %s\n"
             %
