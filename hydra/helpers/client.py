@@ -58,8 +58,8 @@ class ClientHelper(HydraHelper):
         self.app.log.info('Installing %s as %s' % (fn, user))
         self.app.utils.binary_exec('sudo', 'cp', local_fn, fn)
         self.app.utils.binary_exec('sudo', 'chown', 'root:root', fn)
-        self.app.utils.binary_exec('sudo', 'sytemctl', 'daemon-reload')
-        self.app.utils.binary_exec('sudo', 'sytemctl', 'start', '%s.service'%name)
+        self.app.utils.binary_exec('sudo', 'systemctl', 'daemon-reload')
+        self.app.utils.binary_exec('sudo', 'systemctl', 'start', '%s.service'%name)
     
     def bootstrap(self, destination, version=None, destroy=False):
         if os.path.exists(destination):
