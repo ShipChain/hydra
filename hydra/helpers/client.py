@@ -154,7 +154,8 @@ class ClientHelper(HydraHelper):
         this_node_key = self.app.utils.binary_exec('./shipchain', 'nodekey').stdout.strip()
 
         # CONFIG.TOML
-        config = toml.load(open('chaindata/config/config.toml', 'r'))
+        with open('chaindata/config/config.toml', 'r') as fh:
+            config = toml.load(fh, OrderedDict)
         self.app.log.info('Editing config.toml: p2p.pex = %s' % pex)
         config['p2p']['pex'] = pex
 
@@ -178,7 +179,8 @@ class ClientHelper(HydraHelper):
         self.app.log.info('Editing config.toml: p2p.laddr = %s' % p2p_laddr)
         config['p2p']['laddr'] = p2p_laddr
 
-        toml.dump(open('chaindata/config/config.toml', 'w'), config)
+        with open('chaindata/config/config.toml', 'w+') as fh:
+            fh.write(toml.dumps(config))
         
         # START_BLOCKCHAIN.sh
         open('start_blockchain.sh', 'w+').write(
