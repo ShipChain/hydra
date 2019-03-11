@@ -127,6 +127,7 @@ class NetworksHelper(HydraHelper):
                     '#!/bin/bash -xe\n',
                     'apt update -y -q\n',
                     'apt install -y -q python3-pip\n',
+                    'apt install -y -q htop tmux zsh jq || true\n',
                     'apt remove -y -q python3-yaml\n',
                     'pip3 install cement colorlog\n',
                     'pip3 install %s\n'%(

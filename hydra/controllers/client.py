@@ -164,6 +164,15 @@ class Client(Controller):
                     'dest': 'install'
                 }
             ),
+            (
+                ['--peer'],
+                {
+                    'help': 'set the peer',
+                    'action': 'store_true',
+                    'dest': 'install'
+                }
+            ),
+            
         ]
     )
     def configure(self):

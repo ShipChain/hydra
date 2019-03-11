@@ -116,7 +116,8 @@ class Network(Controller):
 
                 self.app.log.info('Stack launch success!')
 
-                break
+                return True
+                
             time.sleep(10)
 
     @ex(
