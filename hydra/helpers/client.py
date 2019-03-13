@@ -128,9 +128,12 @@ class ClientHelper(HydraHelper):
                     for ip, validator in remote_config['node_data'].items()]
 
         os.chdir(destination)
+        self.app.log.info('Peers: ')
+        for peer in peers:
+            self.app.log.info('%s\t%s\t%s'%peer)
 
         # CHAINDATA/CONFIG/GENESIS.json
-
+        self.app.log.info('Copying chaindata/config/genesis.json from s3')
         url = '%s/networks/%s/chaindata/config/genesis.json'%(self.app.config['hydra']['channel_url'], name)
         try:
             cd_genesis = json.loads(requests.get(url).content)
@@ -142,6 +145,7 @@ class ClientHelper(HydraHelper):
 
         # GENESIS.json
 
+        self.app.log.info('Copying genesis.json from s3')
         url = '%s/networks/%s/genesis.json'%(self.app.config['hydra']['channel_url'], name)
         try:
             genesis = json.loads(requests.get(url).content)
@@ -182,6 +186,7 @@ class ClientHelper(HydraHelper):
         with open('chaindata/config/config.toml', 'w+') as fh:
             fh.write(toml.dumps(config))
         
+        self.app.log.info('Creating start_blockchain.sh helper script')
         # START_BLOCKCHAIN.sh
         open('start_blockchain.sh', 'w+').write(
             "#!/bin/bash\n./shipchain run --persistent-peers %s\n"

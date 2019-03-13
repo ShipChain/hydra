@@ -9,3 +9,4 @@ troposphere
 paramiko
 toml
 libtmux
+requests
