@@ -20,7 +20,7 @@ setup(
     author='Lee Bailey',
     author_email='lbailey@shipchain.io',
     url='https://github.com/shipchain/hydra',
-    license='unlicensed',
+    license='Apache-2.0',
     packages=find_packages(exclude=['ez_setup', 'tests*']),
     package_data={'hydra': ['templates/*']},
     include_package_data=True,
