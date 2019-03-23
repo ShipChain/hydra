@@ -22,8 +22,8 @@ $ source env/bin/activate
 
 ### Client controller
 #### Configure client
-```
-$ hydra client configure *network name*
+
+`$ hydra client configure *network name*`
 ```
 Takes network name as a parameter
 #### Join a network
