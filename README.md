@@ -8,7 +8,7 @@
 
 # Hydra manages many heads of networks
 
-## Get-started guide
+## Quick-start Guide
 
 ### Install
 ``` 
