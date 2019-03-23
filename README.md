@@ -29,19 +29,21 @@ Your node is sync'd to the network when `curl localhost:46657/status` returns `s
 
 Shipchain validator node commands can be accessed from `~/hydra/network-name/shipchain`
 
-## Installation
 
+## General Installation and Development Guidelines
+
+### Installation
 ```
 $ pip install -r requirements.txt
 
 $ pip install setup.py
 ```
 
-## Development
+### Development
 
 This project includes a number of helpers in the `Makefile` to streamline common development tasks.
 
-### Environment Setup
+#### Environment Setup
 
 The following demonstrates setting up and working with a development environment:
 
@@ -64,7 +66,7 @@ $ make test
 ```
 
 
-### Releasing to PyPi
+#### Releasing to PyPi
 
 Before releasing to PyPi, you must configure your login credentials:
 
@@ -84,9 +86,9 @@ $ make dist
 $ make dist-upload
 ```
 
-## Deployments
+### Deployments
 
-### Docker
+#### Docker
 
 Included is a basic `Dockerfile` for building and distributing `ShipChain Network Hydra Manager`,
 and can be built with the included `make` helper:
