@@ -8,39 +8,52 @@
 
 # Hydra manages many heads of networks
 
+## Get-started guide
+
+### Install
+``` 
+make virtualenv
+source env/bin/activate
+```
+### Configure client and run node
+
+Note: Replace network-name with your chosen network (e.g. shipchain-testnet-alpha)
+1. Join a network
+`hydra client join-network -n network-name`
+2. Configure client
+`hydra client configure -n network-name`
+3. Run node
+`cd network-name && ./shipchain run`
+
+
+## Installation
+
+```
+$ pip install -r requirements.txt
+
+$ pip install setup.py
+```
+
 ## Development
 
 This project includes a number of helpers in the `Makefile` to streamline common development tasks.
 
-## Installation
+### Environment Setup
+
+The following demonstrates setting up and working with a development environment:
+
+```
+### create a virtualenv for development
 
 $ make virtualenv
 
 $ source env/bin/activate
 
-## Usage
 
-### Client controller
-#### Configure client
+### run hydra cli application
 
-`$ hydra client configure *network name*`
-```
-Takes network name as a parameter
-#### Join a network
-```
-$ hydra client join-network *network name*
-```
-Takes network name as a paramenter (e.g. shipchain-testnet-alpha)
+$ hydra --help
 
-#### Update hydra 
-````
-$ hydra client update
-````
-
-#### 
-```
-$ hydra set-channel
-```
 
 ### run pytest / coverage
 
