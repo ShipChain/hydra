@@ -22,11 +22,12 @@ Note: Replace network-name with your chosen network (e.g. shipchain-testnet-alph
 `hydra client join-network -n network-name`
 2. Configure client
 `hydra client configure -n network-name`
-3. Run node
+3. Start node and begin syncing with network - this will take a while
 `cd network-name && ./start_blockchain.sh`
 
 Your node is sync'd to the network when `curl localhost:46657/status` returns `sync_info.catching_up: false`
 
+Shipchain validator node commands can be accessed from `~/hydra/network-name/shipchain`
 
 ## Installation
 
