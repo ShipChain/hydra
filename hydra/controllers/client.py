@@ -3,9 +3,13 @@ import os
 from shutil import rmtree
 
 from cement import Controller, ex
+import requests
+import yaml
+
+YAML_LOAD = yaml.full_load if hasattr(yaml, 'full_load') else yaml.load
 
 
-class Client(Controller):
+class Client(Controller):  # pylint: disable=too-many-ancestors
     class Meta:
         label = 'client'
         stacked_on = 'base'
@@ -36,15 +40,15 @@ class Client(Controller):
     )
     def set_channel(self):
         if not self.app.pargs.url:
-            return self.app.log.error('You must specify a --url')
-        from yaml import load, dump, FullLoader
+            self.app.log.error('You must specify a --url')
+            return
 
-        with open(self.app.config_file, 'r+') as fh:
-            cfg = load(fh, Loader=FullLoader)
+        with open(self.app.config_file, 'r+') as config_file:
+            cfg = YAML_LOAD(config_file)
 
         cfg['hydra']['channel_url'] = self.app.pargs.url
 
-        open(self.app.config_file, 'w+').write(dump(cfg, indent=4))
+        open(self.app.config_file, 'w+').write(yaml.dump(cfg, indent=4))
 
     @ex(
         arguments=[
@@ -101,34 +105,33 @@ class Client(Controller):
     def join_network(self):
         name = self.app.utils.env_or_arg('name', 'HYDRA_NETWORK', or_path='.hydra_network', required=True)
         destination = self.app.pargs.destination or self.app.utils.path(name)
-        if (self.app.pargs.default):
-            with open(self.app.utils.path('.hydra_network'), 'w+') as fh:
-                fh.write(name)
+
+        if self.app.pargs.default:
+            with open(self.app.utils.path('.hydra_network'), 'w+') as network_file:
+                network_file.write(name)
+
         if os.path.exists(destination):
             if not self.app.pargs.destroy:
-                self.app.log.error(
-                    'Node directory exists, use -D to delete: %s' % destination)
+                self.app.log.error(f'Node directory exists, use -D to delete: {destination}')
                 return
             rmtree(destination)
 
         if not self.app.pargs.version:
-            url = '%s/networks/%s.json' % (
-                self.app.config['hydra']['channel_url'], name)
+            url = f'{self.app.config["hydra"]["channel_url"]}/networks/{name}.json'
             try:
                 remote_config = json.loads(requests.get(url).content)
                 version = remote_config['binary_version']
-            except:
-                remote_config = None
-                self.app.log.warning(
-                    'Error getting network version details from %s, using "latest"' % url)
+            except json.JSONDecodeError:
+                self.app.log.warning(f'Error getting network version details from {url}, using "latest"')
                 version = "latest"
+        else:
+            version = self.app.pargs.version
 
         self.app.client.bootstrap(
             destination, version=version, destroy=self.app.pargs.destroy)
 
         if self.app.pargs.install:
-            self.app.client.install_systemd(name, destination,
-                                            user=self.app.utils.binary_exec('whoami').stdout.strip())
+            self.app.client.install_systemd(name, destination, user=self.app.utils.binary_exec('whoami').stdout.strip())
 
     @ex(
         arguments=[
@@ -180,11 +183,9 @@ class Client(Controller):
         destination = self.app.pargs.destination or self.app.utils.path(name)
 
         if not os.path.exists(destination):
-            self.app.log.error('Directory doesnt exist: %s' % destination)
+            self.app.log.error(f'Directory doesnt exist: {destination}')
 
-        self.app.client.configure(
-            name, destination, version=self.app.pargs.version or 'latest')
+        self.app.client.configure(name, destination, version=self.app.pargs.version or 'latest')
 
         if self.app.pargs.install:
-            self.app.client.install_systemd(name, destination,
-                                            user=self.app.utils.binary_exec('whoami').stdout.strip())
+            self.app.client.install_systemd(name, destination, user=self.app.utils.binary_exec('whoami').stdout.strip())

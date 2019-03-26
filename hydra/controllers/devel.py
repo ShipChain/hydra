@@ -7,7 +7,7 @@ from shutil import rmtree
 from cement import Controller, ex
 
 
-class Devel(Controller):
+class Devel(Controller):  # pylint: disable=too-many-ancestors
     class Meta:
         label = 'devel'
         stacked_on = 'base'
@@ -45,7 +45,7 @@ class Devel(Controller):
         dev = self.app.devel.path()
         if os.path.exists(dev):
             if not self.app.pargs.destroy:
-                self.app.log.error('Devel node directory exists, use -D to delete: %s' % dev)
+                self.app.log.error(f'Devel node directory exists, use -D to delete: {dev}')
                 return
             rmtree(dev)
 
@@ -58,7 +58,7 @@ class Devel(Controller):
         os.chmod('./shipchain', os.stat('./shipchain').st_mode | stat.S_IEXEC)
 
         version = self.devel_exec('version').stderr.strip()
-        self.app.log.info('Copied ShipChain binary version %s' % version)
+        self.app.log.info(f'Copied ShipChain binary version {version}')
 
         self.app.log.info('Initializing Loom...')
 
