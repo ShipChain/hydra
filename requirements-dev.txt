@@ -3,6 +3,9 @@
 pytest
 pytest-cov
 coverage
+safety
+prospector[with_pyroma]
+
 twine>=1.11.0
 setuptools>=38.6.0
 wheel>=0.31.0

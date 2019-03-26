@@ -11,13 +11,17 @@ virtualenv:
 	@echo "VirtualENV Setup Complete. Now run: source env/bin/activate"
 	@echo
 
-test:
+test: comply
 	python -m pytest \
 		-v \
 		--cov=hydra \
 		--cov-report=term \
 		--cov-report=html:coverage-report \
 		tests/
+
+comply:
+	safety check
+	prospector
 
 docker: clean
 	docker build -t hydra:latest .
