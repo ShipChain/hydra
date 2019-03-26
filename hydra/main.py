@@ -1,16 +1,18 @@
+import os
+
 from cement import App, TestApp, init_defaults
 from cement.core.exc import CaughtSignal
-from .core.exc import HydraError
+
 from .controllers.base import Base
+from .controllers.client import Client
 from .controllers.devel import Devel
 from .controllers.network import Network
-from .controllers.client import Client
+from .core.exc import HydraError
+from .helpers import UtilsHelper
 from .helpers.client import ClientHelper
 from .helpers.devel import DevelHelper
-from .helpers import UtilsHelper
 from .helpers.networks import NetworksHelper
 from .helpers.release import ReleaseHelper
-import os
 
 # configuration defaults
 CONFIG = init_defaults('hydra', 'log.logging', 'release',
@@ -95,7 +97,6 @@ class HydraTest(TestApp, Hydra):
 
 
 def main():
-
     with Hydra() as app:
         app.config_file = os.path.expanduser('~/.hydra.yml')
 

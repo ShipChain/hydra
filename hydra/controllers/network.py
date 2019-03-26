@@ -1,15 +1,11 @@
-from cement import Controller, ex, shell
-from datetime import datetime
-from shutil import copy, rmtree
-from troposphere import Ref, Template, ec2, Parameter, Output, GetAtt
-from troposphere.ec2 import NetworkInterfaceProperty
-import os
 import json
-import uuid
+import os
 import time
-import paramiko
-import io
-import glob
+import uuid
+from datetime import datetime
+
+from cement import Controller, ex, shell
+from troposphere import Template
 
 NAME_ARG = (['--name'], {'help': 'the name of the network to run on',
                          'action': 'store', 'dest': 'name'})
@@ -29,20 +25,20 @@ class Network(Controller):
         arguments=[
             NAME_ARG,
             (
-                ['-s', '--size'],
-                {
-                    'help': 'the number of new nodes to launch',
-                    'action': 'store',
-                    'dest': 'size'
-                }
+                    ['-s', '--size'],
+                    {
+                        'help': 'the number of new nodes to launch',
+                        'action': 'store',
+                        'dest': 'size'
+                    }
             ),
             (
-                ['--set-default'],
-                {
-                    'help': 'save as default in .hydra_network',
-                    'action': 'store_true',
-                    'dest': 'default'
-                }
+                    ['--set-default'],
+                    {
+                        'help': 'save as default in .hydra_network',
+                        'action': 'store_true',
+                        'dest': 'default'
+                    }
             ),
         ]
     )
@@ -91,7 +87,7 @@ class Network(Controller):
                     stack.delete()
                 return
             if stack.stack_status == 'CREATE_COMPLETE':
-                if(self.app.pargs.default):
+                if (self.app.pargs.default):
                     with open(self.app.utils.path('.hydra_network'), 'w+') as fh:
                         fh.write(name)
 
@@ -140,12 +136,12 @@ class Network(Controller):
         arguments=[
             NAME_ARG,
             (
-                ['-c', '--cmd'],
-                {
-                    'help': 'command to run',
-                    'action': 'store',
-                    'dest': 'cmd'
-                }
+                    ['-c', '--cmd'],
+                    {
+                        'help': 'command to run',
+                        'action': 'store',
+                        'dest': 'cmd'
+                    }
             ),
         ]
     )
@@ -178,8 +174,8 @@ class Network(Controller):
                 self._deprovision(k)
 
     @ex(help="destroy a registered cloudformation stack",
-        arguments=[NAME_ARG,]
-    )
+        arguments=[NAME_ARG, ]
+        )
     def deprovision(self):
         name = self.app.utils.env_or_arg(
             'name', 'HYDRA_NETWORK', or_path='.hydra_network')
@@ -190,14 +186,14 @@ class Network(Controller):
 
     @ex(help='Publish the network details to S3',
         arguments=[
-             NAME_ARG,
+            NAME_ARG,
             (
-                ['-v', '--version'],
-                {
-                    'help': 'version to publish',
-                    'action': 'store',
-                    'dest': 'version'
-                }
+                    ['-v', '--version'],
+                    {
+                        'help': 'version to publish',
+                        'action': 'store',
+                        'dest': 'version'
+                    }
             ),
         ])
     def publish(self):
@@ -224,14 +220,14 @@ class Network(Controller):
 
     @ex(help='configure',
         arguments=[
-             (
-                 ['--name'],
-                 {
-                     'help': 'the name of the network to run on',
-                     'action': 'store',
-                     'dest': 'name'
-                 }
-             ),
+            (
+                    ['--name'],
+                    {
+                        'help': 'the name of the network to run on',
+                        'action': 'store',
+                        'dest': 'name'
+                    }
+            ),
         ])
     def configure(self):
         networks = self.app.networks.read_networks_file()

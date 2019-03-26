@@ -9,9 +9,11 @@ ignore-paths:
   - dist
   - docs
 
-max-line-length: 120
-
 pylint:
+  options:
+    good-names:
+      - ip
+      - s3
     max-line-length: 120
 
 pep8:

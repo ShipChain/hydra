@@ -1,8 +1,11 @@
 import json
 import os
-import paramiko
-from . import HydraHelper
+
 import boto3
+import paramiko
+
+from . import HydraHelper
+
 
 class NetworksHelper(HydraHelper):
     def read_networks_file(self):
@@ -10,7 +13,7 @@ class NetworksHelper(HydraHelper):
             return json.load(open(self.app.utils.path('networks.json'), 'r+'))
         except:
             return {}
-        
+
     def register(self, network_name, options):
         networks = self.read_networks_file()
 
@@ -26,8 +29,8 @@ class NetworksHelper(HydraHelper):
             self.app.log.info('Deregistering network: %s' % network_name)
 
         json.dump(networks, open(self.app.utils.path('networks.json'), 'w+'))
-    
-    def run_command(self, ip, cmd):    
+
+    def run_command(self, ip, cmd):
         import warnings
         DEFAULT_KEY = '~/.ssh/%(aws_ec2_key_name)s.pem'
         provision = self.app.config['provision']
@@ -53,29 +56,29 @@ class NetworksHelper(HydraHelper):
     def bootstrap_config(self, network_name):
         networks = self.read_networks_file()
         network = networks[network_name]
-        folder = 'networks/%s'%network_name
+        folder = 'networks/%s' % network_name
 
         def open_first_file(fn):
             ip = network['ips'][0]
-            output = self.run_command(ip, "cat %s/%s"%(network_name, fn))
+            output = self.run_command(ip, "cat %s/%s" % (network_name, fn))
             return output
 
         peers = [(ip, validator['pubkey'], validator['nodekey'])
-                for ip, validator in network['node_data'].items()]
+                 for ip, validator in network['node_data'].items()]
 
-        os.makedirs('networks/%s/chaindata/config/'%network_name, exist_ok=True)
+        os.makedirs('networks/%s/chaindata/config/' % network_name, exist_ok=True)
         cd_genesis = json.loads(open_first_file('chaindata/config/genesis.json'))
         cd_genesis['genesis_time'] = "1970-01-01T00:00:00Z"
         cd_genesis['validators'] = [
             {"name": "",
-            "power": '1000',
-            "pub_key": {
-                "type": "tendermint/PubKeyEd25519",
-                "value": pubkey
-            }}
+             "power": '1000',
+             "pub_key": {
+                 "type": "tendermint/PubKeyEd25519",
+                 "value": pubkey
+             }}
             for ip, pubkey, nodekey in peers
         ]
-        json.dump(cd_genesis, open('%s/chaindata/config/genesis.json'%folder, 'w+'), indent=4)
+        json.dump(cd_genesis, open('%s/chaindata/config/genesis.json' % folder, 'w+'), indent=4)
 
         # GENESIS.json
 
@@ -87,33 +90,23 @@ class NetworksHelper(HydraHelper):
                     {'pubKey': pubkey, 'power': '1000'}
                     for ip, pubkey, nodekey in peers
                 ]
-        json.dump(genesis, open('%s/genesis.json'%folder, 'w+'), indent=4)
-        
+        json.dump(genesis, open('%s/genesis.json' % folder, 'w+'), indent=4)
 
     def get_boto(self):
         return boto3.Session(profile_name=self.config.get('provision', 'aws_profile'))
 
     def add_instance(self, stack_name, t, i, sg, subnet):
-        from troposphere import Base64, FindInMap, GetAtt, Join, Output
-        from troposphere import Ref, Tags, Template
-        from troposphere.ec2 import PortRange, NetworkAcl, Route, \
-            VPCGatewayAttachment, SubnetRouteTableAssociation, Subnet, RouteTable, \
-            VPC, NetworkInterfaceProperty, NetworkAclEntry, \
-            SubnetNetworkAclAssociation, EIP, Instance, InternetGateway, \
-            SecurityGroupRule, SecurityGroup
-        from troposphere.policies import CreationPolicy, ResourceSignal
-        from troposphere.cloudformation import Init, InitFile, InitFiles, \
-            InitConfig, InitService, InitServices
-        from troposphere import Ref, Template, ec2, Parameter, Output, GetAtt
+        from troposphere import Base64, Join
+        from troposphere import Ref, ec2, Output, GetAtt
         from troposphere.ec2 import NetworkInterfaceProperty
-        
+
         instance = ec2.Instance("node%s" % i)
         instance.ImageId = self.app.config.get('provision', 'aws_ec2_ami_id')
         instance.InstanceType = self.app.config.get('provision', 'aws_ec2_instance_type')
         instance.KeyName = self.app.config.get('provision', 'aws_ec2_key_name')
         instance.NetworkInterfaces = [
             NetworkInterfaceProperty(
-                GroupSet=[sg,],
+                GroupSet=[sg, ],
                 AssociatePublicIpAddress='true',
                 DeviceIndex='0',
                 DeleteOnTermination='true',
@@ -130,10 +123,10 @@ class NetworksHelper(HydraHelper):
                     'apt install -y -q htop tmux zsh jq || true\n',
                     'apt remove -y -q python3-yaml\n',
                     'pip3 install cement colorlog\n',
-                    'pip3 install %s\n'%(
-                        self.app.config.get('provision', 'pip_install') % self.app.config['hydra']
+                    'pip3 install %s\n' % (
+                            self.app.config.get('provision', 'pip_install') % self.app.config['hydra']
                     ),
-                    'su -l -c "hydra client join-network --name=%s --set-default --install" ubuntu\n'%stack_name
+                    'su -l -c "hydra client join-network --name=%s --set-default --install" ubuntu\n' % stack_name
                 ])
         )
         t.add_resource(instance)
@@ -151,16 +144,12 @@ class NetworksHelper(HydraHelper):
         ])
 
     def sg_subnet_vpc(self, t):
-        from troposphere import Base64
-        from troposphere import Ref, Tags, Template
+        from troposphere import Ref, Tags
         from troposphere.ec2 import PortRange, NetworkAcl, Route, \
             VPCGatewayAttachment, SubnetRouteTableAssociation, Subnet, RouteTable, \
-            VPC, NetworkInterfaceProperty, NetworkAclEntry, \
-            SubnetNetworkAclAssociation, EIP, Instance, InternetGateway, \
+            VPC, NetworkAclEntry, \
+            SubnetNetworkAclAssociation, InternetGateway, \
             SecurityGroupRule, SecurityGroup
-        from troposphere.policies import CreationPolicy, ResourceSignal
-        from troposphere.cloudformation import Init, InitFile, InitFiles, \
-            InitConfig, InitService, InitServices
         ref_stack_id = Ref('AWS::StackId')
         ref_region = Ref('AWS::Region')
         ref_stack_name = Ref('AWS::StackName')
@@ -277,7 +266,6 @@ class NetworksHelper(HydraHelper):
                     CidrBlock='0.0.0.0/0',
                 ))
 
-            
             outBoundHTTPSNetworkAclEntry = t.add_resource(
                 NetworkAclEntry(
                     'OutBoundHTTPSNetworkAclEntry',

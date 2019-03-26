@@ -1,6 +1,10 @@
-from . import HydraHelper
-import boto3
 import os
+
+import boto3
+
+from . import HydraHelper
+
+
 class ReleaseHelper(HydraHelper):
     def path(self, extrapath=''):
         return os.path.realpath(os.path.join(
@@ -17,7 +21,7 @@ class ReleaseHelper(HydraHelper):
         return os.path.join(
             self.app.utils.path(self.config.get('release', 'distdir')),
             self.app.utils.binary_name)
-    
+
     @property
     def dist_bucket(self):
         return self.config.get('release', 'aws_s3_dist_bucket') % self.config['hydra']
@@ -30,7 +34,6 @@ class ReleaseHelper(HydraHelper):
 
     def get_build_version(self):
         return self.app.utils.get_binary_version(self.build_binary_path)
-    
+
     def get_boto(self):
         return boto3.Session(profile_name=self.config.get('release', 'aws_profile'))
-

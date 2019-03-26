@@ -1,15 +1,10 @@
-from pyfiglet import Figlet
-from colored import fg, attr
-from datetime import datetime
-import libtmux
-import requests
 import os
 import subprocess
-import boto3
-import json
-import stat
-import time
 import sys
+
+import libtmux
+from colored import fg, attr
+from pyfiglet import Figlet
 
 FIG = lambda t, f='slant': Figlet(font=f).renderText(t)
 RESET = attr('reset')
@@ -36,17 +31,17 @@ class UtilsHelper(HydraHelper):
     def env_or_arg(self, arg_name, env_name, or_path=None, required=False):
         if getattr(self.app.pargs, arg_name):
             return getattr(self.app.pargs, arg_name)
-        elif(env_name in os.environ):
-            self.app.log.info('--app not specified, using environ[%s]: %s'%(env_name, os.environ[env_name]))        
+        elif (env_name in os.environ):
+            self.app.log.info('--app not specified, using environ[%s]: %s' % (env_name, os.environ[env_name]))
             return os.environ[env_name]
-        
+
         elif or_path and os.path.exists(self.app.utils.path(or_path)):
             with open(self.app.utils.path(or_path), 'r') as fh:
                 value = fh.read().strip()
-                self.app.log.info('--app not specified, using file %s: %s'%(or_path, value))
+                self.app.log.info('--app not specified, using file %s: %s' % (or_path, value))
                 return value
         elif required:
-            self.app.log.error('You must specify either --%s or set %s in your environment'%(arg_name, env_name))
+            self.app.log.error('You must specify either --%s or set %s in your environment' % (arg_name, env_name))
             sys.exit()
 
     def workdir(self, *extrapath):
@@ -76,7 +71,6 @@ class UtilsHelper(HydraHelper):
                            kill_session=kill_session,
                            attach=attach,
                            window_command=strcmd)
-        
 
     def download_file(self, destination, url):
         import requests
