@@ -9,6 +9,7 @@ from shutil import rmtree
 import requests
 import toml
 
+from hydra.core.exc import HydraError
 from hydra.core.version import get_version
 from . import HydraHelper
 
@@ -56,6 +57,21 @@ class ClientHelper(HydraHelper):
         self.app.utils.binary_exec('sudo', 'chown', 'root:root', systemd_service)
         self.app.utils.binary_exec('sudo', 'systemctl', 'daemon-reload')
         self.app.utils.binary_exec('sudo', 'systemctl', 'start', service_name)
+
+    def uninstall_systemd(self, name):
+        service_name = f'{name}.service'
+        systemd_service = f'/etc/systemd/system/{service_name}'
+
+        self.app.log.info(f'Uninstalling {service_name}')
+
+        if not os.path.exists(systemd_service):
+            raise HydraError(f'Systemd file {systemd_service} not found')
+
+        self.app.utils.binary_exec('sudo', 'systemctl', 'stop', service_name)
+        self.app.utils.binary_exec('sudo', 'systemctl', 'disable', service_name)
+        self.app.utils.binary_exec('sudo', 'systemctl', 'reset-failed', service_name)
+        self.app.utils.binary_exec('sudo', 'rm', systemd_service)
+        self.app.utils.binary_exec('sudo', 'systemctl', 'daemon-reload')
 
     def bootstrap(self, destination, version=None, destroy=False):
         if os.path.exists(destination):
