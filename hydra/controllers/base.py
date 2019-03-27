@@ -1,23 +1,27 @@
+import glob
+import json
+import os
+from collections import OrderedDict
+from datetime import datetime
+from shutil import copy
 
+import boto3
 from cement import Controller, ex
 from cement.utils.version import get_version_banner
+from colored import attr
+
 from ..core.version import get_version
-from pyfiglet import Figlet
-from colored import fg, attr
-from collections import OrderedDict
-from shutil import copy
-from datetime import datetime
 from ..helpers import (
-    FIG, SHIP, BLUE, RESET, HYDRA
+    SHIP, BLUE, RESET, HYDRA
 )
-import os, subprocess, boto3, glob, json
 
-VERSION_BANNER = """
-Hydra manages many heads of networks %s
-%s
-""" % (get_version(), get_version_banner())
+VERSION_BANNER = f"""
+Hydra manages many heads of networks {get_version()}
+{get_version_banner()}
+"""
 
-class Base(Controller):
+
+class Base(Controller):  # pylint: disable=too-many-ancestors
     class Meta:
         label = 'base'
 
@@ -29,20 +33,24 @@ class Base(Controller):
 
         # controller level arguments. ex: 'hydra --version'
         arguments = [
-            ### add a version banner
-            ( [ '-v', '--version' ],
-              { 'action'  : 'version',
-                'version' : VERSION_BANNER } ),
+            # add a version banner
+            (
+                ['-v', '--version'],
+                {
+                    'action': 'version',
+                    'version': VERSION_BANNER
+                }
+            ),
         ]
 
     def _default(self):
         """Default action if no sub-command is passed."""
-        
         self.app.args.print_help()
 
     @property
     def utils(self):
         return self.app.utils
+
     @property
     def release(self):
         return self.app.release
@@ -60,13 +68,15 @@ class Base(Controller):
         outputs['Build Binary Path'] = self.release.dist_binary_path
         try:
             outputs['Build Binary Version'] = self.release.get_build_version()
-        except IOError: outputs['Build Binary Version'] = '(doesnt exist)'
+        except IOError:
+            outputs['Build Binary Version'] = '(doesnt exist)'
 
         # Dist Binary
         outputs['Dist Binary Path'] = self.release.dist_binary_path
         try:
             outputs['Dist Binary Version'] = self.release.get_dist_version()
-        except IOError: outputs['Dist Binary Version'] = '(doesnt exist)'
+        except IOError:
+            outputs['Dist Binary Version'] = '(doesnt exist)'
 
         # AWS
         outputs['Release AWS Profile'] = self.app.config.get('release', 'aws_profile')
@@ -74,16 +84,10 @@ class Base(Controller):
         outputs['Boto Version'] = boto3.__version__
 
         outputs['Provision AWS Profile'] = self.app.config.get('provision', 'aws_profile')
-        
-        print(SHIP, RESET)
-        for k, v in outputs.items():
-            print(
-                BLUE,
-                '%20s\t' % k+':',
-                attr('reset'),
-                v
-            )
 
+        print(SHIP, RESET)
+        for key, value in outputs.items():
+            print(BLUE, f'{key:>20}\t:', attr('reset'), value)
 
     @ex(
         help='Make a new version of sidechain for release',
@@ -92,15 +96,13 @@ class Base(Controller):
         """Example sub-command."""
         build = self.release.get_build_version()
 
-        self.app.log.info('Preparing release for distribution: %s' % build)
+        self.app.log.info(f'Preparing release for distribution: {build}')
 
-        self.app.log.debug('mkdir: %s' % self.release.path())
+        self.app.log.debug(f'mkdir: {self.release.path()}')
         os.makedirs(self.release.path(), exist_ok=True)
-        
-        self.app.log.debug('copy: {build_binary} to {dist_binary}')
-        copy(
-            self.release.build_binary_path,
-            self.release.dist_binary_path)
+
+        self.app.log.debug(f'copy: {self.release.build_binary_path} to {self.release.dist_binary_path}')
+        copy(self.release.build_binary_path, self.release.dist_binary_path)
 
         manifest = {
             'version': build,
@@ -109,9 +111,9 @@ class Base(Controller):
         }
 
         self.app.log.debug('writing manifest.json')
-        fn = self.release.path('manifest.json')
-        json.dump(manifest, open(fn, 'w+'), indent=2)
-                
+        manifest_file = self.release.path('manifest.json')
+        json.dump(manifest, open(manifest_file, 'w+'), indent=2)
+
         self.app.log.info('Done making release!')
 
     @ex(
@@ -120,33 +122,31 @@ class Base(Controller):
     def upload_dist(self):
         bucket = self.release.dist_bucket
         version = self.release.get_dist_version()
-        
+
         session = self.release.get_boto()
         s3 = session.resource('s3')
-        self.app.log.info('Uploading distribution to S3: %s @ %s' %
-            (bucket, self.app.config.get('release', 'aws_profile')))
+        self.app.log.info(f'Uploading distribution to S3: {bucket} @ {self.app.config.get("release", "aws_profile")}')
 
-        self.app.log.debug('Making bucket: %s' % bucket)
-        
+        self.app.log.debug(f'Making bucket: {bucket}')
+
         try:
             s3.Bucket(bucket)
-            self.app.log.debug('Bucket created: %s' % bucket)
+            self.app.log.debug(f'Bucket created: {bucket}')
         except s3.meta.client.exceptions.BucketAlreadyOwnedByYou:
-            self.app.log.debug('Already exists: %s' % bucket)
+            self.app.log.debug(f'Already exists: {bucket}')
 
-        dist = self.release.path()+'/'
+        dist = self.release.path() + '/'
 
-        for fn in glob.glob(dist+'*'):
-            local_fn = fn.replace(dist, '')
-            for v in ['archive/%s'%version, 'latest']:
-                to = '%s/%s' % (v, local_fn)
-                self.app.log.debug('Uploading: dist/%s to %s' % (local_fn, to))
-                s3.Bucket(bucket).upload_file(Filename=fn, Key=to, ExtraArgs={'ACL':'public-read'})
+        for dist_file in glob.glob(dist + '*'):
+            local_fn = dist_file.replace(dist, '')
+            for version in [f'archive/{version}', 'latest']:
+                s3_key = f'{version}/{local_fn}'
+                self.app.log.debug(f'Uploading: dist/{local_fn} to {s3_key}')
+                s3.Bucket(bucket).upload_file(Filename=dist_file, Key=s3_key, ExtraArgs={'ACL': 'public-read'})
 
         self.app.log.info('Done!')
         self.app.log.info('Release is available at:')
-        self.app.log.info('https://%s.s3.amazonaws.com/%s'%
-            (bucket, 'latest/manifest.json'))
+        self.app.log.info(f'https://{bucket}.s3.amazonaws.com/latest/manifest.json')
 
     @ex(
         help='Make a release and upload it',

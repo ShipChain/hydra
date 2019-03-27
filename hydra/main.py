@@ -1,16 +1,19 @@
+import os
+import warnings
+
 from cement import App, TestApp, init_defaults
 from cement.core.exc import CaughtSignal
-from .core.exc import HydraError
+
 from .controllers.base import Base
+from .controllers.client import Client
 from .controllers.devel import Devel
 from .controllers.network import Network
-from .controllers.client import Client
+from .core.exc import HydraError
+from .helpers import UtilsHelper
 from .helpers.client import ClientHelper
 from .helpers.devel import DevelHelper
-from .helpers import UtilsHelper
 from .helpers.networks import NetworksHelper
 from .helpers.release import ReleaseHelper
-import os
 
 # configuration defaults
 CONFIG = init_defaults('hydra', 'log.logging', 'release',
@@ -95,9 +98,8 @@ class HydraTest(TestApp, Hydra):
 
 
 def main():
-
     with Hydra() as app:
-        app.config_file = os.path.expanduser('~/.hydra.yml')
+        app.config_file = os.path.expanduser('~/.hydra.yml')  # pylint: disable=attribute-defined-outside-init
 
         if not os.path.exists(app.config_file):
             print('First run: Generating ~/.hydra.yml config...')
@@ -107,25 +109,25 @@ def main():
         try:
             app.run()
 
-        except AssertionError as e:
-            print('AssertionError > %s' % e.args[0])
+        except AssertionError as exc:
+            print(f'AssertionError > {exc.args[0]}')
             app.exit_code = 1
 
             if app.debug is True:
                 import traceback
                 traceback.print_exc()
 
-        except HydraError as e:
-            print('HydraError > %s' % e.args[0])
+        except HydraError as exc:
+            print(f'HydraError > {exc.args[0]}')
             app.exit_code = 1
 
             if app.debug is True:
                 import traceback
                 traceback.print_exc()
 
-        except CaughtSignal as e:
+        except CaughtSignal as exc:
             # Default Cement signals are SIGINT and SIGTERM, exit 0 (non-error)
-            print('\n%s' % e)
+            print(f'\n{exc}')
             app.exit_code = 0
 
 

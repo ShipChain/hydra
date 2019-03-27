@@ -1,43 +1,36 @@
 import json
 import os
 import stat
-import subprocess
 import time
-import sys
+from collections import OrderedDict
 from datetime import datetime
 from shutil import rmtree
-from collections import OrderedDict
 
-import boto3
 import requests
 import toml
 
-from colored import attr, fg
-from pyfiglet import Figlet
 from hydra.core.version import get_version
-
 from . import HydraHelper
 
 
 class ClientHelper(HydraHelper):
     def pip_update_hydra(self):
         pip = self.config.get('client', 'pip_install') % self.config['hydra']
-        self.app.log.info('Updating pip from remote %s'%pip)
+        self.app.log.info(f'Updating pip from remote {pip}')
         # Execvp will replace this process with the sidechain
         os.execvp('pip3', ['pip3', 'install', pip])
 
     def install_systemd(self, name, destination, user='ubuntu'):
-        import toml
         systemd = OrderedDict([
             ('Unit', OrderedDict([
-                ('Description', '%s Loom Node' % name),
+                ('Description', f'{name} Loom Node'),
                 ('After', 'network.target'),
             ])),
             ('Service', OrderedDict([
                 ('Type', 'simple'),
                 ('User', user),
                 ('WorkingDirectory', destination),
-                ('ExecStart', '%s/start_blockchain.sh' % destination),
+                ('ExecStart', f'{destination}/start_blockchain.sh'),
                 ('Restart', 'always'),
                 ('RestartSec', 2),
                 ('StartLimitInterval', 0),
@@ -49,44 +42,45 @@ class ClientHelper(HydraHelper):
                 ('WantedBy', 'multi-user.target'),
             ])),
         ])
-        local_fn = '%s.service' % name
-        self.app.log.info('Writing to %s' % (local_fn))
 
-        with open(local_fn, 'w+') as fh:
+        service_name = f'{name}.service'
+        self.app.log.info(f'Writing to {service_name}')
+
+        with open(service_name, 'w+') as service_file:
             # SystemD is just terse TOML - CHANGE MY MIND
-            fh.write(toml.dumps(systemd).replace('"', '').replace(' = ', '='))
-        
-        fn = '/etc/systemd/system/%s.service' % name
-        self.app.log.info('Installing %s as %s' % (fn, user))
-        self.app.utils.binary_exec('sudo', 'cp', local_fn, fn)
-        self.app.utils.binary_exec('sudo', 'chown', 'root:root', fn)
+            service_file.write(toml.dumps(systemd).replace('"', '').replace(' = ', '='))
+
+        systemd_service = f'/etc/systemd/system/{service_name}'
+        self.app.log.info(f'Installing {systemd_service} as {user}')
+        self.app.utils.binary_exec('sudo', 'cp', service_name, systemd_service)
+        self.app.utils.binary_exec('sudo', 'chown', 'root:root', systemd_service)
         self.app.utils.binary_exec('sudo', 'systemctl', 'daemon-reload')
-        self.app.utils.binary_exec('sudo', 'systemctl', 'start', '%s.service'%name)
-    
+        self.app.utils.binary_exec('sudo', 'systemctl', 'start', service_name)
+
     def bootstrap(self, destination, version=None, destroy=False):
         if os.path.exists(destination):
             if not destroy:
-                self.app.log.error('Node directory exists, use -D to delete: %s'%destination)
+                self.app.log.error(f'Node directory exists, use -D to delete: {destination}')
                 return
             rmtree(destination)
 
         os.makedirs(destination)
-        
+
         os.chdir(destination)
 
         self.app.utils.download_release_file('./shipchain', 'shipchain')
 
         os.chmod('./shipchain', os.stat('./shipchain').st_mode | stat.S_IEXEC)
-            
+
         got_version = self.app.utils.binary_exec('./shipchain', 'version').stderr.strip()
-        self.app.log.debug('Copied ShipChain binary version %s'%got_version)
+        self.app.log.debug(f'Copied ShipChain binary version {got_version}')
 
         self.app.log.info('Initializing Loom...')
 
         self.app.utils.binary_exec('./shipchain', 'init')
         node_key = self.app.utils.binary_exec('./shipchain', 'nodekey').stdout.strip()
 
-        time.sleep(1) # Gotta wait a second because the priv_validator doesn't always show up
+        time.sleep(1)  # Gotta wait a second because the priv_validator doesn't always show up
 
         validator = json.load(open('chaindata/config/priv_validator.json'))
 
@@ -104,100 +98,107 @@ class ClientHelper(HydraHelper):
             'pubkey': validator['pub_key']['value'],
             'nodekey': node_key,
             'shipchain_version': version,
-            'by': 'hydra-bootstrap-%s'%get_version()
+            'by': f'hydra-bootstrap-{get_version()}'
         }
         json.dump(metadata, open('.bootstrap.json', 'w+'), indent=2)
 
         self.app.log.info('Bootstrapped!')
 
-    def configure(self, name, destination, version=None, peers=None,
-                    pex=True, address_book_strict=False, private_peers=False):
+    def configure(self, name, destination, **kwargs):
+        version = kwargs['version'] if 'version' in kwargs else None
+        peers = kwargs['peers'] if 'peers' in kwargs else None
+        pex = kwargs['pex'] if 'pex' in kwargs else True
+        address_book_strict = kwargs['address_book_strict'] if 'address_book_strict' in kwargs else False
+        private_peers = kwargs['private_peers'] if 'private_peers' in kwargs else False
+
+        self.app.log.debug(f'Version {version} requested')
 
         if not os.path.exists(destination):
-            return self.app.log.error('Configuring client at destination does not exist: %s'%destination)
+            self.app.log.error(f'Configuring client at destination does not exist: {destination}')
+            return
 
         if not peers:
-        # Get the published peering data
-            url = '%s/networks/%s/hydra.json'%(self.app.config['hydra']['channel_url'], name)
+            # Get the published peering data
+            url = f'{self.app.config["hydra"]["channel_url"]}/networks/{name}/hydra.json'
             try:
                 remote_config = json.loads(requests.get(url).content)
-            except Exception as e:
-                self.app.log.warning('Error getting network details from %s: %s'%(url, e))
+            except Exception as exc:  # pylint: disable=broad-except
+                self.app.log.warning(f'Error getting network details from {url}: {exc}')
                 return
             peers = [(ip, validator['pubkey'], validator['nodekey'])
-                    for ip, validator in remote_config['node_data'].items()]
+                     for ip, validator in remote_config['node_data'].items()]
 
         os.chdir(destination)
         self.app.log.info('Peers: ')
         for peer in peers:
-            self.app.log.info('%s\t%s\t%s'%peer)
+            self.app.log.info(f'{peer}')
 
         # CHAINDATA/CONFIG/GENESIS.json
-        self.app.log.info('Copying chaindata/config/genesis.json from s3')
-        url = '%s/networks/%s/chaindata/config/genesis.json'%(self.app.config['hydra']['channel_url'], name)
-        try:
-            cd_genesis = json.loads(requests.get(url).content)
-        except Exception as e:
-            self.app.log.warning('Error getting network details from %s: %s'%(url, e))
-            return
-
-        json.dump(cd_genesis, open('chaindata/config/genesis.json', 'w+'), indent=4)
+        self._copy_genesis(
+            f'{self.app.config["hydra"]["channel_url"]}/networks/{name}/chaindata/config/genesis.json',
+            'chaindata/config/genesis.json'
+        )
 
         # GENESIS.json
-
-        self.app.log.info('Copying genesis.json from s3')
-        url = '%s/networks/%s/genesis.json'%(self.app.config['hydra']['channel_url'], name)
-        try:
-            genesis = json.loads(requests.get(url).content)
-        except Exception as e:
-            self.app.log.warning('Error getting network details from %s: %s'%(url, e))
-            return
-
-        json.dump(genesis, open('genesis.json', 'w+'), indent=4)
+        self._copy_genesis(
+            f'{self.app.config["hydra"]["channel_url"]}/networks/{name}/genesis.json',
+            'genesis.json'
+        )
 
         this_node_key = self.app.utils.binary_exec('./shipchain', 'nodekey').stdout.strip()
 
         # CONFIG.TOML
-        with open('chaindata/config/config.toml', 'r') as fh:
-            config = toml.load(fh, OrderedDict)
-        self.app.log.info('Editing config.toml: p2p.pex = %s' % pex)
-        config['p2p']['pex'] = pex
+        self._configure_toml(pex, address_book_strict, peers, private_peers)
 
-        self.app.log.info('Editing config.toml: p2p.address_book_strict = %s' % address_book_strict)
-        config['p2p']['address_book_strict'] = address_book_strict
-
-        private_peers = private_peers and ','.join(
-            [nodekey for ip, pub, nodekey in peers]) or ''
-        self.app.log.info('Editing config.toml: p2p.private_peer_ids = %s' % private_peers)
-        config['p2p']['private_peer_ids'] = private_peers
-
-        proxy_app = 'tcp://0.0.0.0:46658'
-        self.app.log.info('Editing config.toml: proxy_app = %s' % proxy_app)
-        config['proxy_app'] = proxy_app
-
-        rpc_laddr = 'tcp://0.0.0.0:46657'
-        self.app.log.info('Editing config.toml: rpc.laddr = %s' % rpc_laddr)
-        config['rpc']['laddr'] = rpc_laddr
-        
-        p2p_laddr = 'tcp://0.0.0.0:46656'
-        self.app.log.info('Editing config.toml: p2p.laddr = %s' % p2p_laddr)
-        config['p2p']['laddr'] = p2p_laddr
-
-        with open('chaindata/config/config.toml', 'w+') as fh:
-            fh.write(toml.dumps(config))
-        
-        self.app.log.info('Creating start_blockchain.sh helper script')
         # START_BLOCKCHAIN.sh
+        self.app.log.info('Creating start_blockchain.sh helper script')
         open('start_blockchain.sh', 'w+').write(
             "#!/bin/bash\n./shipchain run --persistent-peers %s\n"
             %
-                ','.join(
-                    [
-                        'tcp://%s@%s:46656'%(nodekey, ip)
-                        for ip, pubkey, nodekey in peers
-                        if nodekey != this_node_key
-            ]))
+            ','.join(
+                [
+                    'tcp://%s@%s:46656' % (nodekey, ip)
+                    for ip, pubkey, nodekey in peers
+                    if nodekey != this_node_key
+                ]))
 
         os.chmod('./start_blockchain.sh', os.stat('./start_blockchain.sh').st_mode | stat.S_IEXEC)
 
         self.app.log.info('Configured!')
+
+    def _copy_genesis(self, url, file):
+        self.app.log.info(f'Copying {url} to {file}')
+        try:
+            genesis = json.loads(requests.get(url).content)
+        except Exception as exc:  # pylint: disable=broad-except
+            self.app.log.warning(f'Error getting network details from {url}: {exc}')
+            return
+
+        json.dump(genesis, open(file, 'w+'), indent=4)
+
+    def _configure_toml(self, pex, address_book_strict, peers, private_peers):
+
+        self.app.log.info('Updating config.toml')
+        with open('chaindata/config/config.toml', 'r') as config_toml:
+            config = toml.load(config_toml, OrderedDict)
+
+        config['p2p']['pex'] = pex
+        self.app.log.info(f'Editing config.toml: p2p.pex = {config["p2p"]["pex"]}')
+
+        config['p2p']['address_book_strict'] = address_book_strict
+        self.app.log.info(f'Editing config.toml: p2p.address_book_strict = {config["p2p"]["address_book_strict"]}')
+
+        config['p2p']['private_peer_ids'] = ','.join([nodekey for (ip, pub, nodekey) in peers]) if private_peers else ''
+        self.app.log.info(f'Editing config.toml: p2p.private_peer_ids = {config["p2p"]["private_peer_ids"]}')
+
+        config['proxy_app'] = 'tcp://0.0.0.0:46658'
+        self.app.log.info(f'Editing config.toml: proxy_app = {config["proxy_app"]}')
+
+        config['rpc']['laddr'] = 'tcp://0.0.0.0:46657'
+        self.app.log.info(f'Editing config.toml: rpc.laddr = {config["rpc"]["laddr"]}')
+
+        config['p2p']['laddr'] = 'tcp://0.0.0.0:46656'
+        self.app.log.info(f'Editing config.toml: p2p.laddr = {config["p2p"]["laddr"]}')
+
+        with open('chaindata/config/config.toml', 'w+') as config_toml:
+            config_toml.write(toml.dumps(config))
