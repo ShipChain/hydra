@@ -35,21 +35,20 @@ class HydraHelper:
 
 class UtilsHelper(HydraHelper):
     def env_or_arg(self, arg_name, env_name, or_path=None, required=False):
-        value = None
+        # pargs has default value of None if argument not provided
+        value = getattr(self.app.pargs, arg_name)
 
-        if self.app.pargs[arg_name]:
-            value = self.app.pargs[arg_name]
+        if value is None:
+            if env_name in os.environ:
+                value = os.environ[env_name]
+                self.app.log.info(f'--{arg_name} not specified, using environ[{env_name}]: {value}')
 
-        elif env_name in os.environ:
-            value = os.environ[env_name]
-            self.app.log.info(f'--app not specified, using environ[{env_name}]: {value}')
+            elif or_path and os.path.exists(self.app.utils.path(or_path)):
+                with open(self.app.utils.path(or_path), 'r') as variable_file:
+                    value = variable_file.read().strip()
+                    self.app.log.info(f'--{arg_name} not specified, using file {or_path}: {value}')
 
-        elif or_path and os.path.exists(self.app.utils.path(or_path)):
-            with open(self.app.utils.path(or_path), 'r') as variable_file:
-                value = variable_file.read().strip()
-                self.app.log.info(f'--app not specified, using file {or_path}: {value}')
-
-        elif required:
+        if required and value is None:
             self.app.log.error(f'You must specify either --{arg_name} or set {env_name} in your environment')
             raise HydraError(f'You must specify either --{arg_name} or set {env_name} in your environment')
 
