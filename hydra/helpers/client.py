@@ -56,6 +56,7 @@ class ClientHelper(HydraHelper):
         self.app.utils.binary_exec('sudo', 'cp', service_name, systemd_service)
         self.app.utils.binary_exec('sudo', 'chown', 'root:root', systemd_service)
         self.app.utils.binary_exec('sudo', 'systemctl', 'daemon-reload')
+        self.app.utils.binary_exec('sudo', 'systemctl', 'enable', service_name)
         self.app.utils.binary_exec('sudo', 'systemctl', 'start', service_name)
 
     def uninstall_systemd(self, name):
