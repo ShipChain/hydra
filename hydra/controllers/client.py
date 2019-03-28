@@ -225,10 +225,12 @@ class Client(Controller):  # pylint: disable=too-many-ancestors
             self.app.client.uninstall_systemd(name)
         except HydraError as exc:
             self.app.log.warning(exc)
-            self.app.log.info(f'Service not installed.  Continuing.')
+            self.app.log.info(f'Service not installed.  Attempting to stop executable manually.')
+            self.app.client.find_and_kill_executable(destination)
 
         # Remove network directory
         rmtree(destination)
+        self.app.log.info(f'Removed network directory {destination}')
 
         # Remove .hydra_network if this is the default network
         default_network_file = self.app.utils.path('.hydra_network')
@@ -243,3 +245,6 @@ class Client(Controller):  # pylint: disable=too-many-ancestors
 
             if remove_default_network:
                 os.remove(default_network_file)
+                self.app.log.info(f'Removed default network setting')
+
+        self.app.log.info(f'Successfully left network {name}')

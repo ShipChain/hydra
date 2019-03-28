@@ -1,6 +1,7 @@
 import json
 import os
 import stat
+import subprocess
 import time
 from collections import OrderedDict
 from datetime import datetime
@@ -73,6 +74,32 @@ class ClientHelper(HydraHelper):
         self.app.utils.binary_exec('sudo', 'systemctl', 'reset-failed', service_name)
         self.app.utils.binary_exec('sudo', 'rm', systemd_service)
         self.app.utils.binary_exec('sudo', 'systemctl', 'daemon-reload')
+
+    def find_and_kill_executable(self, destination):
+        pid = self.app.client.get_pid(os.path.join(destination, 'shipchain'))
+        if pid:
+            self.app.log.info(f'Found matching executable running as PID {pid}')
+            self.app.utils.binary_exec('sudo', 'kill', pid)
+        else:
+            self.app.log.info(f'No matching executable running.  Continuing.')
+
+    def get_pid(self, executable_path):
+        self.app.log.info(f'Scanning for running `shipchain` executables')
+
+        pid_list = map(int, subprocess.check_output(['pidof', 'shipchain']).split())
+
+        for pid in pid_list:
+            try:
+                pid_exe_path = subprocess.check_output(['realpath', f'/proc/{pid}/exe'])
+                pid_exe_path = pid_exe_path.decode('utf-8').strip()
+
+                if pid_exe_path == executable_path:
+                    return str(pid)
+
+            except Exception as exc:  # pylint: disable=broad-except
+                self.app.log.warning(f'Unable to check executable path for PID {pid}. {exc}')
+
+        return None
 
     def bootstrap(self, destination, version=None, destroy=False):
         if os.path.exists(destination):
