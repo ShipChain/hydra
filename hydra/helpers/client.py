@@ -1,6 +1,7 @@
 import json
 import os
 import stat
+import subprocess
 import time
 from collections import OrderedDict
 from datetime import datetime
@@ -9,6 +10,7 @@ from shutil import rmtree
 import requests
 import toml
 
+from hydra.core.exc import HydraError
 from hydra.core.version import get_version
 from . import HydraHelper
 
@@ -55,7 +57,52 @@ class ClientHelper(HydraHelper):
         self.app.utils.binary_exec('sudo', 'cp', service_name, systemd_service)
         self.app.utils.binary_exec('sudo', 'chown', 'root:root', systemd_service)
         self.app.utils.binary_exec('sudo', 'systemctl', 'daemon-reload')
+        self.app.utils.binary_exec('sudo', 'systemctl', 'enable', service_name)
         self.app.utils.binary_exec('sudo', 'systemctl', 'start', service_name)
+
+    def uninstall_systemd(self, name):
+        service_name = f'{name}.service'
+        systemd_service = f'/etc/systemd/system/{service_name}'
+
+        self.app.log.info(f'Uninstalling {service_name}')
+
+        if not os.path.exists(systemd_service):
+            raise HydraError(f'Systemd file {systemd_service} not found')
+
+        self.app.utils.binary_exec('sudo', 'systemctl', 'stop', service_name)
+        self.app.utils.binary_exec('sudo', 'systemctl', 'disable', service_name)
+        self.app.utils.binary_exec('sudo', 'systemctl', 'reset-failed', service_name)
+        self.app.utils.binary_exec('sudo', 'rm', systemd_service)
+        self.app.utils.binary_exec('sudo', 'systemctl', 'daemon-reload')
+
+    def find_and_kill_executable(self, destination):
+        pid = self.app.client.get_pid(os.path.join(destination, 'shipchain'))
+        if pid:
+            self.app.log.info(f'Found matching executable running as PID {pid}')
+            self.app.utils.binary_exec('sudo', 'kill', pid)
+        else:
+            self.app.log.info(f'No matching executable running.  Continuing.')
+
+    def get_pid(self, executable_path):
+        self.app.log.info(f'Scanning for running `shipchain` executables')
+
+        try:
+            pid_list = map(int, subprocess.check_output(['pidof', 'shipchain']).split())
+        except subprocess.CalledProcessError:
+            return None
+
+        for pid in pid_list:
+            try:
+                pid_exe_path = subprocess.check_output(['realpath', f'/proc/{pid}/exe'])
+                pid_exe_path = pid_exe_path.decode('utf-8').strip()
+
+                if pid_exe_path == executable_path:
+                    return str(pid)
+
+            except Exception as exc:  # pylint: disable=broad-except
+                self.app.log.warning(f'Unable to check executable path for PID {pid}. {exc}')
+
+        return None
 
     def bootstrap(self, destination, version=None, destroy=False):
         if os.path.exists(destination):
@@ -145,24 +192,11 @@ class ClientHelper(HydraHelper):
             'genesis.json'
         )
 
-        this_node_key = self.app.utils.binary_exec('./shipchain', 'nodekey').stdout.strip()
-
         # CONFIG.TOML
         self._configure_toml(pex, address_book_strict, peers, private_peers)
 
         # START_BLOCKCHAIN.sh
-        self.app.log.info('Creating start_blockchain.sh helper script')
-        open('start_blockchain.sh', 'w+').write(
-            "#!/bin/bash\n./shipchain run --persistent-peers %s\n"
-            %
-            ','.join(
-                [
-                    'tcp://%s@%s:46656' % (nodekey, ip)
-                    for ip, pubkey, nodekey in peers
-                    if nodekey != this_node_key
-                ]))
-
-        os.chmod('./start_blockchain.sh', os.stat('./start_blockchain.sh').st_mode | stat.S_IEXEC)
+        self._create_startup_script(peers)
 
         self.app.log.info('Configured!')
 
@@ -202,3 +236,22 @@ class ClientHelper(HydraHelper):
 
         with open('chaindata/config/config.toml', 'w+') as config_toml:
             config_toml.write(toml.dumps(config))
+
+    def _create_startup_script(self, peers):
+        self.app.log.info('Creating start_blockchain.sh helper script')
+
+        this_node_key = self.app.utils.binary_exec('./shipchain', 'nodekey').stdout.strip()
+
+        persistent_peers = ','.join(
+            [
+                f'tcp://{nodekey}@{ip}:46656'
+                for ip, pubkey, nodekey in peers
+                if nodekey != this_node_key
+            ])
+
+        with open('start_blockchain.sh', 'w+') as start_script:
+            start_script.write('#!/bin/bash\n\n')
+            start_script.write('cd "${0%/*}/"\n')
+            start_script.write(f'./shipchain run --persistent-peers {persistent_peers}\n')
+
+        os.chmod('./start_blockchain.sh', os.stat('./start_blockchain.sh').st_mode | stat.S_IEXEC)

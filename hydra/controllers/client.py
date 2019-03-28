@@ -6,6 +6,8 @@ from cement import Controller, ex
 import requests
 import yaml
 
+from hydra.core.exc import HydraError
+
 YAML_LOAD = yaml.full_load if hasattr(yaml, 'full_load') else yaml.load
 
 
@@ -201,3 +203,60 @@ class Client(Controller):  # pylint: disable=too-many-ancestors
 
         if self.app.pargs.install:
             self.app.client.install_systemd(name, destination, user=self.app.utils.binary_exec('whoami').stdout.strip())
+
+    @ex(
+        arguments=[
+            (
+                    ['-n', '--name'],
+                    {
+                        'help': 'name of network to leave',
+                        'action': 'store',
+                        'dest': 'name'
+                    }
+            ),
+            (
+                    ['-d', '--destination'],
+                    {
+                        'help': 'destination directory',
+                        'action': 'store',
+                        'dest': 'destination'
+                    }
+            ),
+        ]
+    )
+    def leave_network(self):
+        name = self.app.utils.env_or_arg('name', 'HYDRA_NETWORK', or_path='.hydra_network', required=True)
+        destination = self.app.pargs.destination or self.app.utils.path(name)
+
+        # Verify network directory exists before we start removing everything
+        if not os.path.exists(destination):
+            raise HydraError(f'Network directory {destination} does not exist')
+
+        # Stop and remove service before removing network directory
+        try:
+            self.app.client.uninstall_systemd(name)
+        except HydraError as exc:
+            self.app.log.warning(exc)
+            self.app.log.info(f'Service not installed.  Attempting to stop executable manually.')
+            self.app.client.find_and_kill_executable(destination)
+
+        # Remove network directory
+        rmtree(destination)
+        self.app.log.info(f'Removed network directory {destination}')
+
+        # Remove .hydra_network if this is the default network
+        default_network_file = self.app.utils.path('.hydra_network')
+
+        if os.path.exists(default_network_file):
+            remove_default_network = False
+
+            with open(default_network_file, 'r') as network_file:
+                default_network = network_file.readline().strip()
+                if default_network == name:
+                    remove_default_network = True
+
+            if remove_default_network:
+                os.remove(default_network_file)
+                self.app.log.info(f'Removed default network setting')
+
+        self.app.log.info(f'Successfully left network {name}')
