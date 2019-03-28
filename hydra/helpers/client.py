@@ -115,7 +115,7 @@ class ClientHelper(HydraHelper):
 
         os.chdir(destination)
 
-        self.app.utils.download_release_file('./shipchain', 'shipchain')
+        self.app.utils.download_release_file('./shipchain', 'shipchain', version)
 
         os.chmod('./shipchain', os.stat('./shipchain').st_mode | stat.S_IEXEC)
 

@@ -58,7 +58,8 @@ class NetworksHelper(HydraHelper):
             client.close()
 
             self.app.log.debug(f'Output: {output}')
-            self.app.log.error(f'Error: {error}')
+            if error:
+                self.app.log.error(f'Error: {error}')
             return output
 
     def bootstrap_config(self, network_name):
@@ -108,7 +109,7 @@ class NetworksHelper(HydraHelper):
         return boto3.Session(profile_name=self.config.get('provision', 'aws_profile'))
 
     # pylint: disable=too-many-arguments
-    def add_instance(self, stack_name, template, instance_num, security_group, subnet):
+    def add_instance(self, stack_name, template, instance_num, security_group, subnet, version=None):
         from troposphere import Base64, Join, Ref, ec2, Output, GetAtt
 
         instance = ec2.Instance(f'node{instance_num}')
@@ -124,8 +125,8 @@ class NetworksHelper(HydraHelper):
                 SubnetId=subnet
             )
         ]
-
-        join_network_arguments = f'--name={stack_name} --set-default --install --no-configure'
+        version_flag = f' --version={version}' if version else ''
+        join_network_arguments = f'--name={stack_name}{version_flag} --set-default --install --no-configure'
 
         instance.UserData = Base64(
             Join(
@@ -144,7 +145,7 @@ class NetworksHelper(HydraHelper):
         template.add_resource(instance)
         template.add_output([
             Output(
-                f"IP{instance_num}",
+                f"ID{instance_num}",
                 Description="InstanceId of the newly created EC2 instance",
                 Value=Ref(instance),
             ),

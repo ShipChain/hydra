@@ -105,7 +105,7 @@ def main():
             print('First run: Generating ~/.hydra.yml config...')
             from yaml import dump
             open(app.config_file, 'w+').write(
-                dump({'hydra': CONFIG['hydra']}, indent=4))
+                dump(CONFIG, indent=4, default_flow_style=False))
         try:
             app.run()
 

@@ -44,3 +44,8 @@ log.colorlog:
 
 ### The maximun number of log files to maintain when rotating
 # max_files: 4
+
+provision:
+
+### The name of the EC2 instance key to be used when creating instances (must be present in ~/.ssh)
+# aws_ec2_key_name: my-ec2-key
