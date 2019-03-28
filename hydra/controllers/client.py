@@ -100,6 +100,15 @@ class Client(Controller):  # pylint: disable=too-many-ancestors
                         'dest': 'install'
                     }
             ),
+            (
+                    ['--no-configure'],
+                    {
+                        'help': 'prevent the configuration step from running',
+                        'action': 'store_false',
+                        'dest': 'do_configure',
+                        'default': 'true'
+                    }
+            ),
         ]
     )
     def join_network(self):
@@ -129,6 +138,9 @@ class Client(Controller):  # pylint: disable=too-many-ancestors
 
         self.app.client.bootstrap(
             destination, version=version, destroy=self.app.pargs.destroy)
+
+        if self.app.pargs.do_configure:
+            self.app.client.configure(name, destination, version=self.app.pargs.version or 'latest')
 
         if self.app.pargs.install:
             self.app.client.install_systemd(name, destination, user=self.app.utils.binary_exec('whoami').stdout.strip())
