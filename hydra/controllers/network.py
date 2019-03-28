@@ -46,10 +46,19 @@ class Network(Controller):  # pylint: disable=too-many-ancestors
                         'dest': 'default'
                     }
             ),
+            (
+                    ['-v', '--version'],
+                    {
+                        'help': 'version of network software to run',
+                        'action': 'store',
+                        'dest': 'version'
+                    }
+            ),
         ]
     )
     def provision(self):
         node_count = int(self.app.pargs.size or 1)
+        version = self.app.pargs.version or None
         name = self.app.pargs.name or f'{self.app.project}-network-{str(uuid.uuid4())[:6]}'
 
         if 'aws_ec2_key_name' not in self.app.config['provision']:
@@ -62,7 +71,7 @@ class Network(Controller):  # pylint: disable=too-many-ancestors
         security_group, subnet = self.app.networks.sg_subnet_vpc(template)
 
         for instance_num in range(node_count):
-            self.app.networks.add_instance(name, template, instance_num, security_group, subnet)
+            self.app.networks.add_instance(name, template, instance_num, security_group, subnet, version)
 
         template_json = template.to_json()
 
@@ -113,17 +122,18 @@ class Network(Controller):  # pylint: disable=too-many-ancestors
 
                 for attempt in range(10):
                     time.sleep(30)
-                    self.app.log.info(f'Deleting network: {attempt}')
+                    self.app.log.info(f'Bootstrapping node: {attempt}')
                     try:
-                        registry['node_data'] = {
-                            ip: self.get_bootstrap_data(ip, name) for ip in ips
-                        }
+                        registry['node_data'] = {ip: self.get_bootstrap_data(ip, name) for ip in ips}
                         self.app.networks.register(name, registry)
                         break
                     except:  # pylint: disable=bare-except
                         pass
 
-                self.app.log.info('Stack launch success!')
+                if attempt >= 10:
+                    self.app.log.error('Timed out waiting for nodes to bootstrap.')
+                else:
+                    self.app.log.info('Stack launch success!')
                 return
 
             time.sleep(10)

@@ -126,10 +126,10 @@ class Client(Controller):  # pylint: disable=too-many-ancestors
             rmtree(destination)
 
         if not self.app.pargs.version:
-            url = f'{self.app.config["hydra"]["channel_url"]}/networks/{name}.json'
+            url = f'{self.app.config["hydra"]["channel_url"]}/networks/{name}/hydra.json'
             try:
                 remote_config = json.loads(requests.get(url).content)
-                version = remote_config['binary_version']
+                version = remote_config['version']
             except json.JSONDecodeError:
                 self.app.log.warning(f'Error getting network version details from {url}, using "latest"')
                 version = "latest"
