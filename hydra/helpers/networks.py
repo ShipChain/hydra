@@ -124,6 +124,9 @@ class NetworksHelper(HydraHelper):
                 SubnetId=subnet
             )
         ]
+
+        join_network_arguments = f'--name={stack_name} --set-default --install --no-configure'
+
         instance.UserData = Base64(
             Join(
                 '',
@@ -135,7 +138,7 @@ class NetworksHelper(HydraHelper):
                     'apt remove -y -q python3-yaml\n',
                     'pip3 install cement colorlog\n',
                     f'pip3 install {self.app.config.get("provision", "pip_install") % self.app.config["hydra"]}\n',
-                    f'su -l -c "hydra client join-network --name={stack_name} --set-default --install" ubuntu\n'
+                    f'su -l -c "hydra client join-network {join_network_arguments}" ubuntu\n'
                 ])
         )
         template.add_resource(instance)
