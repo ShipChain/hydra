@@ -162,24 +162,11 @@ class ClientHelper(HydraHelper):
             'genesis.json'
         )
 
-        this_node_key = self.app.utils.binary_exec('./shipchain', 'nodekey').stdout.strip()
-
         # CONFIG.TOML
         self._configure_toml(pex, address_book_strict, peers, private_peers)
 
         # START_BLOCKCHAIN.sh
-        self.app.log.info('Creating start_blockchain.sh helper script')
-        open('start_blockchain.sh', 'w+').write(
-            "#!/bin/bash\n./shipchain run --persistent-peers %s\n"
-            %
-            ','.join(
-                [
-                    'tcp://%s@%s:46656' % (nodekey, ip)
-                    for ip, pubkey, nodekey in peers
-                    if nodekey != this_node_key
-                ]))
-
-        os.chmod('./start_blockchain.sh', os.stat('./start_blockchain.sh').st_mode | stat.S_IEXEC)
+        self._create_startup_script(peers)
 
         self.app.log.info('Configured!')
 
@@ -219,3 +206,22 @@ class ClientHelper(HydraHelper):
 
         with open('chaindata/config/config.toml', 'w+') as config_toml:
             config_toml.write(toml.dumps(config))
+
+    def _create_startup_script(self, peers):
+        self.app.log.info('Creating start_blockchain.sh helper script')
+
+        this_node_key = self.app.utils.binary_exec('./shipchain', 'nodekey').stdout.strip()
+
+        persistent_peers = ','.join(
+            [
+                f'tcp://{nodekey}@{ip}:46656'
+                for ip, pubkey, nodekey in peers
+                if nodekey != this_node_key
+            ])
+
+        with open('start_blockchain.sh', 'w+') as start_script:
+            start_script.write('#!/bin/bash\n\n')
+            start_script.write('cd "${0%/*}/"\n')
+            start_script.write(f'./shipchain run --persistent-peers {persistent_peers}\n')
+
+        os.chmod('./start_blockchain.sh', os.stat('./start_blockchain.sh').st_mode | stat.S_IEXEC)
