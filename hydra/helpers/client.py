@@ -86,7 +86,10 @@ class ClientHelper(HydraHelper):
     def get_pid(self, executable_path):
         self.app.log.info(f'Scanning for running `shipchain` executables')
 
-        pid_list = map(int, subprocess.check_output(['pidof', 'shipchain']).split())
+        try:
+            pid_list = map(int, subprocess.check_output(['pidof', 'shipchain']).split())
+        except subprocess.CalledProcessError:
+            return None
 
         for pid in pid_list:
             try:
