@@ -1,5 +1,6 @@
 import os
 import subprocess
+import urllib.parse
 
 import libtmux
 import requests
@@ -103,6 +104,7 @@ class UtilsHelper(HydraHelper):
         if not version:
             url = f'{host}/latest/{file}'
         else:
+            version = urllib.parse.quote(version)
             url = f'{host}/archive/{version}/{file}'
         return self.download_file(destination, url)
 
