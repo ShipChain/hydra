@@ -101,7 +101,7 @@ class UtilsHelper(HydraHelper):
 
     def download_release_file(self, destination, file, version=None):
         host = self.config.get('hydra', 'channel_url')
-        if not version:
+        if not version or version == "latest":
             url = f'{host}/latest/{file}'
         else:
             version = urllib.parse.quote(version)
