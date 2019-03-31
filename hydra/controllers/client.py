@@ -260,3 +260,181 @@ class Client(Controller):  # pylint: disable=too-many-ancestors
                 self.app.log.info(f'Removed default network setting')
 
         self.app.log.info(f'Successfully left network {name}')
+
+
+    @ex(
+        arguments=[
+            (
+                    ['-n', '--name'],
+                    {
+                        'help': 'name of network to stop',
+                        'action': 'store',
+                        'dest': 'name'
+                    }
+            ),
+        ]
+    )
+    def stop_service(self):
+        name = self.app.utils.env_or_arg('name', 'HYDRA_NETWORK', or_path='.hydra_network', required=True)
+                
+        command = ['sudo', 'systemctl', 'stop', name]
+        self.app.log.info(' '.join(command))
+        self.app.utils.binary_exec(*command)
+
+        command = ['sudo', 'systemctl', 'kill', name]
+        self.app.log.info(' '.join(command))
+        self.app.utils.binary_exec(*command)
+
+    @ex(
+        arguments=[
+            (
+                    ['-n', '--name'],
+                    {
+                        'help': 'name of network to start',
+                        'action': 'store',
+                        'dest': 'name'
+                    }
+            ),
+        ]
+    )
+    def start_service(self):
+        name = self.app.utils.env_or_arg('name', 'HYDRA_NETWORK', or_path='.hydra_network', required=True)
+
+        command = ['sudo', 'systemctl', 'start', name]
+        self.app.log.info(' '.join(command))
+        self.app.utils.binary_exec(*command)
+
+
+    @ex(
+        arguments=[
+            (
+                    ['-n', '--name'],
+                    {
+                        'help': 'name of network to restart',
+                        'action': 'store',
+                        'dest': 'name'
+                    }
+            ),
+        ]
+    )
+    def restart_service(self):
+        name = self.app.utils.env_or_arg('name', 'HYDRA_NETWORK', or_path='.hydra_network', required=True)
+
+                  
+        command = ['sudo', 'systemctl', 'stop', name]
+        self.app.log.info(' '.join(command))
+        self.app.utils.binary_exec(*command)
+        
+        command = ['sudo', 'systemctl', 'kill', name]
+        self.app.log.info(' '.join(command))
+        self.app.utils.binary_exec(*command)
+        
+        command = ['sudo', 'systemctl', 'start', name]
+        self.app.log.info(' '.join(command))
+        self.app.utils.binary_exec(*command)
+
+    
+
+    @ex(
+        arguments=[
+            (
+                    ['-n', '--name'],
+                    {
+                        'help': 'name of network to get logs for',
+                        'action': 'store',
+                        'dest': 'name'
+                    }
+            ),
+        ]
+    )
+    def logs(self):
+        name = self.app.utils.env_or_arg('name', 'HYDRA_NETWORK', or_path='.hydra_network', required=True)
+
+                  
+        command = ['journalctl', '-u', name]
+        os.execvp('journalctl', command)
+
+    @ex(
+        arguments=[
+            (
+                    ['-n', '--name'],
+                    {
+                        'help': 'name of network to get logs for',
+                        'action': 'store',
+                        'dest': 'name'
+                    }
+            ),
+            (
+                    ['-N', '--number'],
+                    {
+                        'help': 'number of lines to get',
+                        'action': 'store',
+                        'dest': 'number'
+                    }
+            ),
+        ]
+    )
+    def tail_logs(self):
+        name = self.app.utils.env_or_arg('name', 'HYDRA_NETWORK', or_path='.hydra_network', required=True)
+
+                  
+        command = ['journalctl', '-u', name, '--no-pager', '-n', self.app.pargs.number or '100']
+        os.execvp('journalctl', command)
+
+
+    @ex(
+        arguments=[
+            (
+                    ['-n', '--name'],
+                    {
+                        'help': 'name of network to get logs for',
+                        'action': 'store',
+                        'dest': 'name'
+                    }
+            ),
+            (
+                    ['-N', '--number'],
+                    {
+                        'help': 'number of lines to get',
+                        'action': 'store',
+                        'dest': 'number'
+                    }
+            ),
+        ]
+    )
+    def follow_logs(self):
+        name = self.app.utils.env_or_arg('name', 'HYDRA_NETWORK', or_path='.hydra_network', required=True)
+
+                  
+        command = ['journalctl', '-u', name, '-n', self.app.pargs.number or '100', '-f']
+        os.execvp('journalctl', command)
+
+
+
+    @ex(
+        arguments=[
+            (
+                    ['-H', '--host'],
+                    {
+                        'help': 'host of network to get status',
+                        'action': 'store',
+                        'dest': 'host'
+                    }
+            ),
+            (
+                    ['-p', '--rpc-port'],
+                    {
+                        'help': 'RPC port of network to get status',
+                        'action': 'store',
+                        'dest': 'rpc_port'
+                    }
+            ),
+        ]
+    )
+    def status(self):
+        host = self.app.utils.env_or_arg('host', 'HYDRA_NETWORK_HOST', or_path='.hydra_network_host') or 'localhost'
+        port = self.app.utils.env_or_arg('rpc_port', 'HYDRA_NETWORK_RPC_PORT', or_path='.hydra_network_rpc_port') or '46657'
+
+                  
+        command = ['curl', '-s', 'http://%s:%s/status'%(host,port)]
+        os.execvp('curl', command)
