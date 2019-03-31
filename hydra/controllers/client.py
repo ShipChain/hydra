@@ -31,12 +31,12 @@ class Client(Controller):  # pylint: disable=too-many-ancestors
     @ex(
         arguments=[
             (
-                    ['-u', '--url'],
-                    {
-                        'help': '',
-                        'action': 'store_true',
-                        'dest': 'url'
-                    }
+                ['-u', '--url'],
+                {
+                    'help': '',
+                    'action': 'store_true',
+                    'dest': 'url'
+                }
             ),
         ]
     )
@@ -55,66 +55,67 @@ class Client(Controller):  # pylint: disable=too-many-ancestors
     @ex(
         arguments=[
             (
-                    ['-n', '--name'],
-                    {
-                        'help': 'name of network to join',
-                        'action': 'store',
-                        'dest': 'name'
-                    }
+                ['-n', '--name'],
+                {
+                    'help': 'name of network to join',
+                    'action': 'store',
+                    'dest': 'name'
+                }
             ),
             (
-                    ['-D', '--destroy'],
-                    {
-                        'help': 'destroy existing directory',
-                        'action': 'store_true',
-                        'dest': 'destroy'
-                    }
+                ['-D', '--destroy'],
+                {
+                    'help': 'destroy existing directory',
+                    'action': 'store_true',
+                    'dest': 'destroy'
+                }
             ),
             (
-                    ['-v', '--version'],
-                    {
-                        'help': 'version of network software to run',
-                        'action': 'store',
-                        'dest': 'version'
-                    }
+                ['-v', '--version'],
+                {
+                    'help': 'version of network software to run',
+                    'action': 'store',
+                    'dest': 'version'
+                }
             ),
             (
-                    ['-d', '--destination'],
-                    {
-                        'help': 'destination directory',
-                        'action': 'store',
-                        'dest': 'destination'
-                    }
+                ['-d', '--destination'],
+                {
+                    'help': 'destination directory',
+                    'action': 'store',
+                    'dest': 'destination'
+                }
             ),
             (
-                    ['--set-default'],
-                    {
-                        'help': 'save as default in .hydra_network',
-                        'action': 'store_true',
-                        'dest': 'default'
-                    }
+                ['--set-default'],
+                {
+                    'help': 'save as default in .hydra_network',
+                    'action': 'store_true',
+                    'dest': 'default'
+                }
             ),
             (
-                    ['--install'],
-                    {
-                        'help': 'install systemd service for the network',
-                        'action': 'store_true',
-                        'dest': 'install'
-                    }
+                ['--install'],
+                {
+                    'help': 'install systemd service for the network',
+                    'action': 'store_true',
+                    'dest': 'install'
+                }
             ),
             (
-                    ['--no-configure'],
-                    {
-                        'help': 'prevent the configuration step from running',
-                        'action': 'store_false',
-                        'dest': 'do_configure',
-                        'default': 'true'
-                    }
+                ['--no-configure'],
+                {
+                    'help': 'prevent the configuration step from running',
+                    'action': 'store_false',
+                    'dest': 'do_configure',
+                    'default': 'true'
+                }
             ),
         ]
     )
     def join_network(self):
-        name = self.app.utils.env_or_arg('name', 'HYDRA_NETWORK', or_path='.hydra_network', required=True)
+        name = self.app.utils.env_or_arg(
+            'name', 'HYDRA_NETWORK', or_path='.hydra_network', required=True)
         destination = self.app.pargs.destination or self.app.utils.path(name)
 
         if self.app.pargs.default:
@@ -123,7 +124,8 @@ class Client(Controller):  # pylint: disable=too-many-ancestors
 
         if os.path.exists(destination):
             if not self.app.pargs.destroy:
-                self.app.log.error(f'Node directory exists, use -D to delete: {destination}')
+                self.app.log.error(
+                    f'Node directory exists, use -D to delete: {destination}')
                 return
             rmtree(destination)
 
@@ -133,7 +135,8 @@ class Client(Controller):  # pylint: disable=too-many-ancestors
                 remote_config = json.loads(requests.get(url).content)
                 version = remote_config['version']
             except json.JSONDecodeError:
-                self.app.log.warning(f'Error getting network version details from {url}, using "latest"')
+                self.app.log.warning(
+                    f'Error getting network version details from {url}, using "latest"')
                 version = "latest"
         else:
             version = self.app.pargs.version
@@ -142,90 +145,96 @@ class Client(Controller):  # pylint: disable=too-many-ancestors
             destination, version=version, destroy=self.app.pargs.destroy)
 
         if self.app.pargs.do_configure:
-            self.app.client.configure(name, destination, version=self.app.pargs.version or 'latest')
+            self.app.client.configure(
+                name, destination, version=self.app.pargs.version or 'latest')
 
         if self.app.pargs.install:
-            self.app.client.install_systemd(name, destination, user=self.app.utils.binary_exec('whoami').stdout.strip())
+            self.app.client.install_systemd(
+                name, destination, user=self.app.utils.binary_exec('whoami').stdout.strip())
 
     @ex(
         arguments=[
             (
-                    ['-n', '--name'],
-                    {
-                        'help': 'name of network to join',
-                        'action': 'store',
-                        'dest': 'name'
-                    }
+                ['-n', '--name'],
+                {
+                    'help': 'name of network to join',
+                    'action': 'store',
+                    'dest': 'name'
+                }
             ),
             (
-                    ['-v', '--version'],
-                    {
-                        'help': 'version of network software to run',
-                        'action': 'store',
-                        'dest': 'version'
-                    }
+                ['-v', '--version'],
+                {
+                    'help': 'version of network software to run',
+                    'action': 'store',
+                    'dest': 'version'
+                }
             ),
             (
-                    ['-d', '--destination'],
-                    {
-                        'help': 'destination directory',
-                        'action': 'store',
-                        'dest': 'destination'
-                    }
+                ['-d', '--destination'],
+                {
+                    'help': 'destination directory',
+                    'action': 'store',
+                    'dest': 'destination'
+                }
             ),
             (
-                    ['--install'],
-                    {
-                        'help': 'install systemd service for the network',
-                        'action': 'store_true',
-                        'dest': 'install'
-                    }
+                ['--install'],
+                {
+                    'help': 'install systemd service for the network',
+                    'action': 'store_true',
+                    'dest': 'install'
+                }
             ),
             (
-                    ['--peer'],
-                    {
-                        'help': 'set the peer',
-                        'action': 'store_true',
-                        'dest': 'install'
-                    }
+                ['--peer'],
+                {
+                    'help': 'set the peer',
+                    'action': 'store_true',
+                    'dest': 'install'
+                }
             ),
 
         ]
     )
     def configure(self):
-        name = self.app.utils.env_or_arg('name', 'HYDRA_NETWORK', or_path='.hydra_network', required=True)
+        name = self.app.utils.env_or_arg(
+            'name', 'HYDRA_NETWORK', or_path='.hydra_network', required=True)
         destination = self.app.pargs.destination or self.app.utils.path(name)
 
         if not os.path.exists(destination):
             self.app.log.error(f'Directory doesnt exist: {destination}')
 
-        self.app.client.configure(name, destination, version=self.app.pargs.version or 'latest')
+        self.app.client.configure(
+            name, destination, version=self.app.pargs.version or 'latest')
 
         if self.app.pargs.install:
-            self.app.client.install_systemd(name, destination, user=self.app.utils.binary_exec('whoami').stdout.strip())
+            self.app.client.install_systemd(
+                name, destination, user=self.app.utils.binary_exec('whoami').stdout.strip())
 
     @ex(
         arguments=[
             (
-                    ['-n', '--name'],
-                    {
-                        'help': 'name of network to leave',
-                        'action': 'store',
-                        'dest': 'name'
-                    }
+                ['-n', '--name'],
+                {
+                    'help': 'name of network to leave',
+                    'action': 'store',
+                    'dest': 'name'
+                }
             ),
             (
-                    ['-d', '--destination'],
-                    {
-                        'help': 'destination directory',
-                        'action': 'store',
-                        'dest': 'destination'
-                    }
+                ['-d', '--destination'],
+                {
+                    'help': 'destination directory',
+                    'action': 'store',
+                    'dest': 'destination'
+                }
             ),
         ]
     )
     def leave_network(self):
-        name = self.app.utils.env_or_arg('name', 'HYDRA_NETWORK', or_path='.hydra_network', required=True)
+        name = self.app.utils.env_or_arg(
+            'name', 'HYDRA_NETWORK', or_path='.hydra_network', required=True)
         destination = self.app.pargs.destination or self.app.utils.path(name)
 
         # Verify network directory exists before we start removing everything
@@ -237,7 +246,8 @@ class Client(Controller):  # pylint: disable=too-many-ancestors
             self.app.client.uninstall_systemd(name)
         except HydraError as exc:
             self.app.log.warning(exc)
-            self.app.log.info(f'Service not installed.  Attempting to stop executable manually.')
+            self.app.log.info(
+                f'Service not installed.  Attempting to stop executable manually.')
             self.app.client.find_and_kill_executable(destination)
 
         # Remove network directory
@@ -261,22 +271,22 @@ class Client(Controller):  # pylint: disable=too-many-ancestors
 
         self.app.log.info(f'Successfully left network {name}')
 
-
     @ex(
         arguments=[
             (
-                    ['-n', '--name'],
-                    {
-                        'help': 'name of network to stop',
-                        'action': 'store',
-                        'dest': 'name'
-                    }
+                ['-n', '--name'],
+                {
+                    'help': 'name of network to stop',
+                    'action': 'store',
+                    'dest': 'name'
+                }
             ),
         ]
     )
     def stop_service(self):
-        name = self.app.utils.env_or_arg('name', 'HYDRA_NETWORK', or_path='.hydra_network', required=True)
-                
+        name = self.app.utils.env_or_arg(
+            'name', 'HYDRA_NETWORK', or_path='.hydra_network', required=True)
+
         command = ['sudo', 'systemctl', 'stop', name]
         self.app.log.info(' '.join(command))
         self.app.utils.binary_exec(*command)
@@ -288,153 +298,151 @@ class Client(Controller):  # pylint: disable=too-many-ancestors
     @ex(
         arguments=[
             (
-                    ['-n', '--name'],
-                    {
-                        'help': 'name of network to start',
-                        'action': 'store',
-                        'dest': 'name'
-                    }
+                ['-n', '--name'],
+                {
+                    'help': 'name of network to start',
+                    'action': 'store',
+                    'dest': 'name'
+                }
             ),
         ]
     )
     def start_service(self):
-        name = self.app.utils.env_or_arg('name', 'HYDRA_NETWORK', or_path='.hydra_network', required=True)
+        name = self.app.utils.env_or_arg(
+            'name', 'HYDRA_NETWORK', or_path='.hydra_network', required=True)
 
         command = ['sudo', 'systemctl', 'start', name]
         self.app.log.info(' '.join(command))
         self.app.utils.binary_exec(*command)
 
-
     @ex(
         arguments=[
             (
-                    ['-n', '--name'],
-                    {
-                        'help': 'name of network to restart',
-                        'action': 'store',
-                        'dest': 'name'
-                    }
+                ['-n', '--name'],
+                {
+                    'help': 'name of network to restart',
+                    'action': 'store',
+                    'dest': 'name'
+                }
             ),
         ]
     )
     def restart_service(self):
-        name = self.app.utils.env_or_arg('name', 'HYDRA_NETWORK', or_path='.hydra_network', required=True)
+        name = self.app.utils.env_or_arg(
+            'name', 'HYDRA_NETWORK', or_path='.hydra_network', required=True)
 
-                  
         command = ['sudo', 'systemctl', 'stop', name]
         self.app.log.info(' '.join(command))
         self.app.utils.binary_exec(*command)
-        
+
         command = ['sudo', 'systemctl', 'kill', name]
         self.app.log.info(' '.join(command))
         self.app.utils.binary_exec(*command)
-        
+
         command = ['sudo', 'systemctl', 'start', name]
         self.app.log.info(' '.join(command))
         self.app.utils.binary_exec(*command)
 
-    
-
     @ex(
         arguments=[
             (
-                    ['-n', '--name'],
-                    {
-                        'help': 'name of network to get logs for',
-                        'action': 'store',
-                        'dest': 'name'
-                    }
+                ['-n', '--name'],
+                {
+                    'help': 'name of network to get logs for',
+                    'action': 'store',
+                    'dest': 'name'
+                }
             ),
         ]
     )
     def logs(self):
-        name = self.app.utils.env_or_arg('name', 'HYDRA_NETWORK', or_path='.hydra_network', required=True)
+        name = self.app.utils.env_or_arg(
+            'name', 'HYDRA_NETWORK', or_path='.hydra_network', required=True)
 
-                  
         command = ['journalctl', '-u', name]
         os.execvp('journalctl', command)
 
     @ex(
         arguments=[
             (
-                    ['-n', '--name'],
-                    {
-                        'help': 'name of network to get logs for',
-                        'action': 'store',
-                        'dest': 'name'
-                    }
+                ['-n', '--name'],
+                {
+                    'help': 'name of network to get logs for',
+                    'action': 'store',
+                    'dest': 'name'
+                }
             ),
             (
-                    ['-N', '--number'],
-                    {
-                        'help': 'number of lines to get',
-                        'action': 'store',
-                        'dest': 'number'
-                    }
+                ['-N', '--number'],
+                {
+                    'help': 'number of lines to get',
+                    'action': 'store',
+                    'dest': 'number'
+                }
             ),
         ]
     )
     def tail_logs(self):
-        name = self.app.utils.env_or_arg('name', 'HYDRA_NETWORK', or_path='.hydra_network', required=True)
+        name = self.app.utils.env_or_arg(
+            'name', 'HYDRA_NETWORK', or_path='.hydra_network', required=True)
 
-                  
-        command = ['journalctl', '-u', name, '--no-pager', '-n', self.app.pargs.number or '100']
+        command = ['journalctl', '-u', name, '--no-pager',
+                   '-n', self.app.pargs.number or '100']
         os.execvp('journalctl', command)
-
 
     @ex(
         arguments=[
             (
-                    ['-n', '--name'],
-                    {
-                        'help': 'name of network to get logs for',
-                        'action': 'store',
-                        'dest': 'name'
-                    }
+                ['-n', '--name'],
+                {
+                    'help': 'name of network to get logs for',
+                    'action': 'store',
+                    'dest': 'name'
+                }
             ),
             (
-                    ['-N', '--number'],
-                    {
-                        'help': 'number of lines to get',
-                        'action': 'store',
-                        'dest': 'number'
-                    }
+                ['-N', '--number'],
+                {
+                    'help': 'number of lines to get',
+                    'action': 'store',
+                    'dest': 'number'
+                }
             ),
         ]
     )
     def follow_logs(self):
-        name = self.app.utils.env_or_arg('name', 'HYDRA_NETWORK', or_path='.hydra_network', required=True)
+        name = self.app.utils.env_or_arg(
+            'name', 'HYDRA_NETWORK', or_path='.hydra_network', required=True)
 
-                  
-        command = ['journalctl', '-u', name, '-n', self.app.pargs.number or '100', '-f']
+        command = ['journalctl', '-u', name, '-n',
+                   self.app.pargs.number or '100', '-f']
         os.execvp('journalctl', command)
-
-
 
     @ex(
         arguments=[
             (
-                    ['-H', '--host'],
-                    {
-                        'help': 'host of network to get status',
-                        'action': 'store',
-                        'dest': 'host'
-                    }
+                ['-H', '--host'],
+                {
+                    'help': 'host of network to get status',
+                    'action': 'store',
+                    'dest': 'host'
+                }
             ),
             (
-                    ['-p', '--rpc-port'],
-                    {
-                        'help': 'RPC port of network to get status',
-                        'action': 'store',
-                        'dest': 'rpc_port'
-                    }
+                ['-p', '--rpc-port'],
+                {
+                    'help': 'RPC port of network to get status',
+                    'action': 'store',
+                    'dest': 'rpc_port'
+                }
             ),
         ]
     )
     def status(self):
-        host = self.app.utils.env_or_arg('host', 'HYDRA_NETWORK_HOST', or_path='.hydra_network_host') or 'localhost'
-        port = self.app.utils.env_or_arg('rpc_port', 'HYDRA_NETWORK_RPC_PORT', or_path='.hydra_network_rpc_port') or '46657'
+        host = self.app.utils.env_or_arg(
+            'host', 'HYDRA_NETWORK_HOST', or_path='.hydra_network_host') or 'localhost'
+        port = self.app.utils.env_or_arg(
+            'rpc_port', 'HYDRA_NETWORK_RPC_PORT', or_path='.hydra_network_rpc_port') or '46657'
 
-                  
-        command = ['curl', '-s', 'http://%s:%s/status'%(host,port)]
+        command = ['curl', '-s', 'http://%s:%s/status' % (host, port)]
         os.execvp('curl', command)
