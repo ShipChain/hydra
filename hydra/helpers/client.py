@@ -1,3 +1,4 @@
+import base64
 import json
 import os
 import stat
@@ -5,10 +6,12 @@ import subprocess
 import time
 from collections import OrderedDict
 from datetime import datetime
+from io import StringIO
 from shutil import rmtree
 
 import requests
 import toml
+import yaml
 
 from hydra.core.exc import HydraError
 from hydra.core.version import get_version
@@ -122,6 +125,26 @@ class ClientHelper(HydraHelper):
         got_version = self.app.utils.binary_exec('./shipchain', 'version').stderr.strip()
         self.app.log.debug(f'Copied ShipChain binary version {got_version}')
 
+        # LOOM.YAML defaults for generating initial genesis.json
+        loom_config = {
+            'ChainID': 'default',
+            'RegistryVersion': 2,
+            'DPOSVersion': 2,
+            'ReceiptsVersion': 2,
+            'EVMAccountsEnabled': True,
+            'TransferGateway': {
+                'ContractEnabled': True
+            },
+            'LoomCoinTransferGateway': {
+                'ContractEnabled': True
+            },
+            'ChainConfig': {
+                'ContractEnabled': True
+            },
+        }
+        open(f'loom.yaml', 'w+').write(
+            yaml.dump(loom_config, indent=4, default_flow_style=False))
+
         self.app.log.info('Initializing Loom...')
 
         self.app.utils.binary_exec('./shipchain', 'init')
@@ -138,10 +161,15 @@ class ClientHelper(HydraHelper):
         self.app.log.info('Your node key is:')
         self.app.log.info(node_key)
 
+        hex_addr = self.app.utils.binary_exec('./shipchain', 'call', 'pubkey',
+                                              validator['pub_key']['value']).stdout.strip()
+
         self.app.log.debug('Writing hydra metadata...')
         metadata = {
             'bootstrapped': datetime.utcnow().strftime('%c'),
             'address': validator['address'],
+            'hex_address': f'0x{hex_addr[10:]}',
+            'b64_address': base64.b64encode(bytes.fromhex(hex_addr[10:])).decode(),
             'pubkey': validator['pub_key']['value'],
             'nodekey': node_key,
             'shipchain_version': version,
@@ -149,16 +177,45 @@ class ClientHelper(HydraHelper):
         }
         json.dump(metadata, open('.bootstrap.json', 'w+'), indent=2)
 
+        self.app.log.debug('Writing key files...')
+        open('node_pub.key', 'w+').write(metadata['pubkey'])
+        open('node_priv.key', 'w+').write(validator['priv_key']['value'])
+        open('node_addr.b64', 'w+').write(metadata['b64_address'])
+
         self.app.log.info('Bootstrapped!')
 
-    def configure(self, name, destination, **kwargs):
-        version = kwargs['version'] if 'version' in kwargs else None
-        peers = kwargs['peers'] if 'peers' in kwargs else None
-        pex = kwargs['pex'] if 'pex' in kwargs else True
-        address_book_strict = kwargs['address_book_strict'] if 'address_book_strict' in kwargs else False
-        private_peers = kwargs['private_peers'] if 'private_peers' in kwargs else False
+    def _setup_oracle_loom_yaml(self):
+        with open('loom.yaml', 'r+') as config_file:
+            cfg = yaml.load(config_file)
 
-        self.app.log.debug(f'Version {version} requested')
+        for gateway in ('TransferGateway', 'LoomCoinTransferGateway'):
+            cfg[gateway]['OracleEnabled'] = True
+            cfg[gateway]['EthereumURI'] = self.app.config['provision']['gateway']['ethereum_uri']
+
+            cfg[gateway]['MainnetPrivateKeyPath'] = 'oracle_eth_priv.key'
+            cfg[gateway]['MainnetPollInterval'] = self.app.config['provision']['gateway']['mainnet_poll_interval']
+
+            cfg[gateway]['DAppChainPrivateKeyPath'] = 'node_priv.key'
+            cfg[gateway]['DAppChainReadURI'] = 'http://localhost:46658/query'
+            cfg[gateway]['DAppChainWriteURI'] = 'http://localhost:46658/rpc'
+            cfg[gateway]['DAppChainEventsURI'] = 'ws://localhost:46658/queryws'
+            cfg[gateway]['DAppChainPollInterval'] = self.app.config['provision']['gateway'][
+                'dappchain_poll_interval']
+
+            cfg[gateway]['OracleLogLevel'] = self.app.config['provision']['gateway']['oracle_log_level']
+            cfg[gateway]['OracleLogDestination'] = f'file://{gateway}-oracle.log'
+            cfg[gateway]['OracleStartupDelay'] = self.app.config['provision']['gateway']['oracle_startup_delay']
+            cfg[gateway]['OracleReconnectInterval'] = self.app.config['provision']['gateway'][
+                'oracle_reconnect_interval']
+
+        cfg['TransferGateway']['MainnetContractHexAddress'] = self.app.config['provision']['gateway'][
+            'mainnet_tg_contract_hex_address']
+        cfg['LoomCoinTransferGateway']['MainnetContractHexAddress'] = self.app.config['provision']['gateway'][
+            'mainnet_lctg_contract_hex_address']
+        open('loom.yaml', 'w+').write(yaml.dump(cfg, indent=4))
+
+    def configure(self, name, destination, **kwargs):
+        peers = kwargs['peers'] if 'peers' in kwargs else None
 
         if not os.path.exists(destination):
             self.app.log.error(f'Configuring client at destination does not exist: {destination}')
@@ -186,6 +243,14 @@ class ClientHelper(HydraHelper):
             'chaindata/config/genesis.json'
         )
 
+        # LOOM.YAML
+        self._copy_yaml(
+            f'{self.app.config["hydra"]["channel_url"]}/networks/{name}/loom.yaml',
+            'loom.yaml'
+        )
+        if kwargs['oracle'] if 'oracle' in kwargs else False:
+            self._setup_oracle_loom_yaml()
+
         # GENESIS.json
         self._copy_genesis(
             f'{self.app.config["hydra"]["channel_url"]}/networks/{name}/genesis.json',
@@ -193,7 +258,10 @@ class ClientHelper(HydraHelper):
         )
 
         # CONFIG.TOML
-        self._configure_toml(pex, address_book_strict, peers, private_peers)
+        self._configure_toml(kwargs['pex'] if 'pex' in kwargs else True,
+                             kwargs['address_book_strict'] if 'address_book_strict' in kwargs else False,
+                             peers,
+                             kwargs['private_peers'] if 'private_peers' in kwargs else False)
 
         # START_BLOCKCHAIN.sh
         self._create_startup_script(peers)
@@ -209,6 +277,16 @@ class ClientHelper(HydraHelper):
             return
 
         json.dump(genesis, open(file, 'w+'), indent=4)
+
+    def _copy_yaml(self, url, file):
+        self.app.log.info(f'Copying {url} to {file}')
+        try:
+            contents = yaml.load(StringIO(requests.get(url).text))
+        except Exception as exc:  # pylint: disable=broad-except
+            self.app.log.warning(f'Error getting yaml from {url}: {exc}')
+            return
+
+        open(file, 'w+').write(yaml.dump(contents, indent=4))
 
     def _configure_toml(self, pex, address_book_strict, peers, private_peers):
 

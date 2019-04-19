@@ -8,8 +8,6 @@ import yaml
 
 from hydra.core.exc import HydraError
 
-YAML_LOAD = yaml.full_load if hasattr(yaml, 'full_load') else yaml.load
-
 
 class Client(Controller):  # pylint: disable=too-many-ancestors
     class Meta:
@@ -46,7 +44,7 @@ class Client(Controller):  # pylint: disable=too-many-ancestors
             return
 
         with open(self.app.config_file, 'r+') as config_file:
-            cfg = YAML_LOAD(config_file)
+            cfg = yaml.load(config_file)
 
         cfg['hydra']['channel_url'] = self.app.pargs.url
 
@@ -145,8 +143,7 @@ class Client(Controller):  # pylint: disable=too-many-ancestors
             destination, version=version, destroy=self.app.pargs.destroy)
 
         if self.app.pargs.do_configure:
-            self.app.client.configure(
-                name, destination, version=self.app.pargs.version or 'latest')
+            self.app.client.configure(name, destination)
 
         if self.app.pargs.install:
             self.app.client.install_systemd(
@@ -194,7 +191,14 @@ class Client(Controller):  # pylint: disable=too-many-ancestors
                     'dest': 'install'
                 }
             ),
-
+            (
+                ['--as-oracle'],
+                {
+                    'help': 'join the network as the transfer-gateway oracle',
+                    'action': 'store_true',
+                    'dest': 'oracle'
+                }
+            ),
         ]
     )
     def configure(self):
@@ -206,7 +210,7 @@ class Client(Controller):  # pylint: disable=too-many-ancestors
             self.app.log.error(f'Directory doesnt exist: {destination}')
 
         self.app.client.configure(
-            name, destination, version=self.app.pargs.version or 'latest')
+            name, destination, version=self.app.pargs.version or 'latest', oracle=self.app.pargs.oracle)
 
         if self.app.pargs.install:
             self.app.client.install_systemd(

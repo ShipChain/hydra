@@ -12,12 +12,12 @@ from .core.exc import HydraError
 from .helpers import UtilsHelper
 from .helpers.client import ClientHelper
 from .helpers.devel import DevelHelper
-from .helpers.networks import NetworksHelper
+from .helpers.network import NetworkHelper
 from .helpers.release import ReleaseHelper
 
 # configuration defaults
 CONFIG = init_defaults('hydra', 'log.logging', 'release',
-                       'devel', 'provision', 'client')
+                       'devel', 'provision', 'client', 'loom')
 CONFIG['hydra']['workdir'] = os.path.realpath(os.getcwd())
 CONFIG['hydra']['project'] = 'shipchain'
 CONFIG['hydra']['binary_name'] = '%(project)s'
@@ -33,6 +33,28 @@ CONFIG['provision']['aws_ec2_region'] = 'us-east-1'
 CONFIG['provision']['aws_ec2_instance_type'] = 'm5.xlarge'
 CONFIG['provision']['aws_ec2_ami_id'] = 'ami-0a313d6098716f372'
 CONFIG['provision']['pip_install'] = 'git+%(project_source)s@master'
+CONFIG['provision']['gateway'] = {  # Rinkeby defaults
+    'first_mainnet_block_num': 4197965,
+    'ethereum_uri': 'https://rinkeby.infura.io/v3/1b8e8507933f40529210b790fcf7300e',
+    'mainnet_tg_contract_hex_address': '0x517D2F00adD655862c546690e219076C160df209',
+    'mainnet_lctg_contract_hex_address': '0x30754a3D79B47Cf402D36Fa6EfB7039dcBB52c7b',
+    'mainnet_poll_interval': 60,
+    'dappchain_poll_interval': 60,
+    'oracle_log_level': 'debug',
+    'oracle_startup_delay': 5,
+    'oracle_reconnect_interval': 5
+}
+CONFIG['provision']['dpos'] = {
+    'validator_count': 21,
+    'election_cycle_length': 30,
+    'registration_requirement': 250000,
+    'lock_time': 0,
+    'fee': 1500
+}
+CONFIG['loom']['loom_log_name'] = 'loom.log'
+CONFIG['loom']['loom_log_level'] = 'debug'
+CONFIG['loom']['contract_log_level'] = 'debug'
+CONFIG['loom']['blockchain_log_level'] = 'error'
 CONFIG['devel']['path'] = '%(workdir)s/devel'
 CONFIG['client']['pip_install'] = 'git+%(project_source)s@master'
 
@@ -42,7 +64,7 @@ def add_helpers(app):
     ReleaseHelper.attach('release', app)
     DevelHelper.attach('devel', app)
     ClientHelper.attach('client', app)
-    NetworksHelper.attach('networks', app)
+    NetworkHelper.attach('network', app)
     app.project = app.config.get('hydra', 'project')
 
 

@@ -23,3 +23,7 @@ pep8:
 
 pyroma:
   run: true
+
+mccabe:
+  options:
+    max-complexity: 12
