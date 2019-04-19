@@ -49,7 +49,7 @@ CONFIG['provision']['dpos'] = {
     'election_cycle_length': 30,
     'registration_requirement': 250000,
     'lock_time': 0,
-    'fee': 1500
+    'fee': 2500
 }
 CONFIG['loom']['loom_log_name'] = 'loom.log'
 CONFIG['loom']['loom_log_level'] = 'debug'
