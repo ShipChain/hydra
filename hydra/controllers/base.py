@@ -121,7 +121,7 @@ class Base(Controller):  # pylint: disable=too-many-ancestors
     )
     def upload_dist(self):
         bucket = self.release.dist_bucket
-        version = self.release.get_dist_version()
+        dist_version = self.release.get_dist_version()
 
         session = self.release.get_boto()
         s3 = session.resource('s3')
@@ -139,7 +139,7 @@ class Base(Controller):  # pylint: disable=too-many-ancestors
 
         for dist_file in glob.glob(dist + '*'):
             local_fn = dist_file.replace(dist, '')
-            for version in [f'archive/{version}', 'latest']:
+            for version in [f'archive/{dist_version}', 'latest']:
                 s3_key = f'{version}/{local_fn}'
                 self.app.log.debug(f'Uploading: dist/{local_fn} to {s3_key}')
                 s3.Bucket(bucket).upload_file(Filename=dist_file, Key=s3_key, ExtraArgs={'ACL': 'public-read'})
