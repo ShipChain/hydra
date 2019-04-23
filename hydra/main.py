@@ -48,6 +48,7 @@ CONFIG['provision']['dpos'] = {
     'validator_count': 21,
     'election_cycle_length': 30,
     'registration_requirement': 250000,
+    'max_yearly_rewards': 30000000,
     'lock_time': 0,
     'fee': 2500
 }
