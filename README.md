@@ -9,6 +9,9 @@
 # Hydra manages many heads of networks
 
 ## Quick-start Guide
+Just trying to use hydra? Follow our [Validator Setup Guide](https://docs.shipchain.io/docs/validatorGuide.html)
+
+# Developer Instructions
 
 ### Install
 ``` 
