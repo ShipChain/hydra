@@ -179,7 +179,6 @@ class NetworkHelper(HydraHelper):
             'RegistryVersion': 2,
             'DPOSVersion': 2,
             'ReceiptsVersion': 2,
-            'LogDestination': f"file://{self.app.config['loom']['loom_log_name']}",
             'LoomLogLevel': self.app.config['loom']['loom_log_level'],
             'ContractLogLevel': self.app.config['loom']['contract_log_level'],
             'BlockchainLogLevel': self.app.config['loom']['blockchain_log_level'],

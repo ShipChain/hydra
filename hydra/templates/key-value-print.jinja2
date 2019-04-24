@@ -1,0 +1,7 @@
+{%  extends "header.jinja2" %}
+{% block content %}
+{% for key, value in OUTPUTS.items() %}{{ BLUE }}{{ "%20s \t" | format(key | replace('_', ' ') | title) }}:{{ RESET }}{% if value == True -%}{{ CHECK_SUCCESS }}
+    {%- elif value == False %}{{ CROSS_FAIL }}
+    {%- else %}{{ value }}{%- endif %}
+{% endfor %}
+{% endblock %}

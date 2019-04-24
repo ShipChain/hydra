@@ -8,12 +8,9 @@ from shutil import copy
 import boto3
 from cement import Controller, ex
 from cement.utils.version import get_version_banner
-from colored import attr
 
 from ..core.version import get_version
-from ..helpers import (
-    SHIP, BLUE, RESET, HYDRA
-)
+from ..helpers import HYDRA
 
 VERSION_BANNER = f"""
 Hydra manages many heads of networks {get_version()}
@@ -61,33 +58,31 @@ class Base(Controller):  # pylint: disable=too-many-ancestors
     def info(self):
         outputs = OrderedDict()
 
-        outputs['Work Directory'] = self.utils.path()
-        outputs['Project Name'] = self.app.config.get('hydra', 'project')
+        outputs['work_directory'] = self.utils.path()
+        outputs['project_name'] = self.app.config.get('hydra', 'project')
 
         # Build Binary
-        outputs['Build Binary Path'] = self.release.dist_binary_path
+        outputs['build_binary_path'] = self.release.dist_binary_path
         try:
-            outputs['Build Binary Version'] = self.release.get_build_version()
+            outputs['build_binary_version'] = self.release.get_build_version()
         except IOError:
-            outputs['Build Binary Version'] = '(doesnt exist)'
+            outputs['build_binary_version'] = '(doesnt exist)'
 
         # Dist Binary
-        outputs['Dist Binary Path'] = self.release.dist_binary_path
+        outputs['dist_binary_path'] = self.release.dist_binary_path
         try:
-            outputs['Dist Binary Version'] = self.release.get_dist_version()
+            outputs['dist_binary_version'] = self.release.get_dist_version()
         except IOError:
-            outputs['Dist Binary Version'] = '(doesnt exist)'
+            outputs['dist_binary_version'] = '(doesnt exist)'
 
         # AWS
-        outputs['Release AWS Profile'] = self.app.config.get('release', 'aws_profile')
-        outputs['S3 Dist Bucket'] = self.app.release.dist_bucket
-        outputs['Boto Version'] = boto3.__version__
+        outputs['release_aws_profile'] = self.app.config.get('release', 'aws_profile')
+        outputs['s3_dist_bucket'] = self.app.release.dist_bucket
+        outputs['boto_version'] = boto3.__version__
 
-        outputs['Provision AWS Profile'] = self.app.config.get('provision', 'aws_profile')
+        outputs['provision_aws_profile'] = self.app.config.get('provision', 'aws_profile')
 
-        print(SHIP, RESET)
-        for key, value in outputs.items():
-            print(BLUE, f'{key:>20}\t:', attr('reset'), value)
+        self.app.smart_render(outputs, 'key-value-print.jinja2')
 
     @ex(
         help='Make a new version of sidechain for release',

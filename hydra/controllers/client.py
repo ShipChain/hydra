@@ -1,10 +1,11 @@
 import json
 import os
+from collections import OrderedDict
 from shutil import rmtree
 
-from cement import Controller, ex
 import requests
 import yaml
+from cement import Controller, ex
 
 from hydra.core.exc import HydraError
 
@@ -425,6 +426,14 @@ class Client(Controller):  # pylint: disable=too-many-ancestors
     @ex(
         arguments=[
             (
+                ['-n', '--name'],
+                {
+                    'help': 'name of network to get status for',
+                    'action': 'store',
+                    'dest': 'name'
+                }
+            ),
+            (
                 ['-H', '--host'],
                 {
                     'help': 'host of network to get status',
@@ -440,6 +449,15 @@ class Client(Controller):  # pylint: disable=too-many-ancestors
                     'dest': 'rpc_port'
                 }
             ),
+            (
+                ['-b', '--blocks'],
+                {
+                    'help': 'Number of prior blocks to scan for blocks validated by this node',
+                    'action': 'store',
+                    'dest': 'blocks',
+                    'default': '100'
+                }
+            ),
         ]
     )
     def status(self):
@@ -447,6 +465,52 @@ class Client(Controller):  # pylint: disable=too-many-ancestors
             'host', 'HYDRA_NETWORK_HOST', or_path='.hydra_network_host') or 'localhost'
         port = self.app.utils.env_or_arg(
             'rpc_port', 'HYDRA_NETWORK_RPC_PORT', or_path='.hydra_network_rpc_port') or '46657'
+        name = self.app.utils.env_or_arg(
+            'name', 'HYDRA_NETWORK', or_path='.hydra_network', required=True)
+        size = int(self.app.pargs.blocks)
 
-        command = ['curl', '-s', 'http://%s:%s/status' % (host, port)]
-        os.execvp('curl', command)
+        # If user has signed a block in the past 100 blocks, it is a validator
+        def get(stub):
+            return json.loads(requests.get(f'http://{host}:{port}'+stub).content)
+
+        status = get('/status')['result']
+        latest_block = int(status['sync_info']['latest_block_height'])
+
+        voted = 0
+        for i in range(latest_block - size, latest_block):
+            precommits = [
+                    precommit for precommit in
+                    get(f'/commit?height={i}')['result']['signed_header']['commit']['precommits']
+                    if precommit and precommit['validator_address'] == status['validator_info']['address']
+            ]
+            if precommits:
+                voted += 1
+
+        outputs = OrderedDict()
+        outputs['node_block_height'] = status['sync_info']['latest_block_height']
+        outputs['node_block_time'] = status['sync_info']['latest_block_time']
+
+        if status['sync_info']['catching_up']:
+            outputs['is_caught_up'] = False
+
+            height_response = requests.post(f'https://{name}.network.shipchain.io:46658/query', json={
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "getblockheight",
+                "params": []
+            })
+            if height_response.status_code == 200:
+                outputs['latest_block_height'] = height_response.json()['result']
+                outputs['blocks_remaining'] = (int(height_response.json()['result']) -
+                                               int(status['sync_info']['latest_block_height']))
+        else:
+            outputs['is_caught_up'] = True
+
+        if voted:
+            # Yer a validator, 'arry!
+            outputs['is_a_validator'] = True
+            outputs['validation_rate'] = f'{voted}/{size} blocks ({(voted//size) * 100}%)'
+        else:
+            outputs['is_a_validator'] = False
+
+        self.app.smart_render(outputs, 'key-value-print.jinja2')

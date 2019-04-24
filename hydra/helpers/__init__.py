@@ -14,11 +14,22 @@ def fig(text, font='slant'):
     return Figlet(font=font).renderText(text)
 
 
-RESET = attr('reset')
-ORANGE = fg('orange_1')
-SHIP = ORANGE + fig('ShipChain') + RESET
-BLUE = fg('blue')
-HYDRA = BLUE + fig('HYDRA', 'block') + RESET
+CHECK_SUCCESS = f"{fg('green')}✓{attr('reset')}"
+CROSS_FAIL = f"{fg('red')}✗{attr('reset')}"
+HYDRA = fg('blue') + fig('HYDRA', 'block') + attr('reset')
+
+
+def inject_jinja_globals(outputs):
+    return {
+        'RESET': attr('reset'),
+        'ORANGE': fg('orange_1'),
+        'SHIP': fg('orange_1') + fig('ShipChain') + attr('reset'),
+        'BLUE': fg('blue'),
+        'HYDRA': HYDRA,
+        'CHECK_SUCCESS': CHECK_SUCCESS,
+        'CROSS_FAIL': CROSS_FAIL,
+        'OUTPUTS': outputs
+    }
 
 
 class HydraHelper:

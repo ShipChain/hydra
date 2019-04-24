@@ -9,7 +9,7 @@ from .controllers.client import Client
 from .controllers.devel import Devel
 from .controllers.network import Network
 from .core.exc import HydraError
-from .helpers import UtilsHelper
+from .helpers import UtilsHelper, inject_jinja_globals
 from .helpers.client import ClientHelper
 from .helpers.devel import DevelHelper
 from .helpers.network import NetworkHelper
@@ -59,6 +59,9 @@ CONFIG['loom']['blockchain_log_level'] = 'error'
 CONFIG['devel']['path'] = '%(workdir)s/devel'
 CONFIG['client']['pip_install'] = 'git+%(project_source)s@master'
 
+META = init_defaults('output.json')
+META['output.json']['overridable'] = True
+
 
 def add_helpers(app):
     UtilsHelper.attach('utils', app)
@@ -69,14 +72,27 @@ def add_helpers(app):
     app.project = app.config.get('hydra', 'project')
 
 
+def disable_logs_json_handler(app):
+    if app.output.Meta.label == 'json':
+        app.log.backend.level = 40
+
+
 class Hydra(App):
     """ShipChain Network Hydra Manager primary application."""
+
+    def smart_render(self, data, template=None):
+        if self.output.Meta.label == 'jinja2':
+            data = inject_jinja_globals(data)
+        self.render(data, template)
 
     class Meta:
         label = 'hydra'
 
         # configuration defaults
         config_defaults = CONFIG
+
+        # meta defaults
+        meta_defaults = META
 
         # call sys.exit() on close
         close_on_exit = True
@@ -86,6 +102,7 @@ class Hydra(App):
             'yaml',
             'colorlog',
             'jinja2',
+            'json'
         ]
 
         # configuration handler
@@ -109,7 +126,8 @@ class Hydra(App):
         ]
 
         hooks = [
-            ('post_setup', add_helpers)
+            ('post_setup', add_helpers),
+            ('post_argument_parsing', disable_logs_json_handler)
         ]
 
 
