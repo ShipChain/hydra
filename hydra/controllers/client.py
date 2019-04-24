@@ -509,9 +509,9 @@ class Client(Controller):  # pylint: disable=too-many-ancestors
         if voted:
             # Yer a validator, 'arry!
             outputs['is_a_validator'] = True
-            outputs['validation_block_votes'] = voted
-            outputs['validation_block_sample'] = size
-            outputs['validation_percentage'] = round((voted / size) * 100, 2)
+            outputs['block_votes'] = voted
+            outputs['block_sample'] = size
+            outputs['vote_percentage'] = round((voted / size) * 100, 2)
         else:
             outputs['is_a_validator'] = False
 
