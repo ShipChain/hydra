@@ -455,7 +455,7 @@ class Client(Controller):  # pylint: disable=too-many-ancestors
                     'help': 'Number of prior blocks to scan for blocks validated by this node',
                     'action': 'store',
                     'dest': 'blocks',
-                    'default': '100'
+                    'default': '250'
                 }
             ),
         ]
