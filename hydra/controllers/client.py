@@ -3,8 +3,10 @@ import os
 from collections import OrderedDict
 from shutil import rmtree
 
+import toml
 import requests
 import yaml
+import sys
 from cement import Controller, ex
 
 from hydra.core.exc import HydraError
@@ -428,6 +430,73 @@ class Client(Controller):  # pylint: disable=too-many-ancestors
             (
                 ['-n', '--name'],
                 {
+                    'help': 'name of network to update',
+                    'action': 'store',
+                    'dest': 'name'
+                }
+            ),
+            (['node_name'],
+                {
+                        'help': 'the new name of the node',
+                        'action': 'store'
+                }
+            ),
+            (['description'],
+                {
+                        'help': 'the new description of the node',
+                        'action': 'store'
+                }
+            ),
+            (['website'],
+                {
+                        'help': 'the new website of the node',
+                        'action': 'store'
+                }
+            )
+        ]
+    )
+    def set_info(self):
+        name = self.app.utils.env_or_arg(
+            'name', 'HYDRA_NETWORK', or_path='.hydra_network', required=True)
+
+        destination = self.app.utils.path(name)
+
+        os.chdir(destination)
+
+        self.app.log.info('Updating config.toml')
+        with open('chaindata/config/config.toml', 'r') as config_toml:
+            config = toml.load(config_toml, OrderedDict)
+
+        config['moniker'] = self.app.pargs.node_name
+        self.app.log.info(f'Editing config.toml: moniker = {config["moniker"]}')
+
+        with open('chaindata/config/config.toml', 'w+') as config_toml:
+            config_toml.write(toml.dumps(config))
+
+
+        command = ['./shipchain', 'call', '-k', 'node_priv.key', 'update_candidate_info',
+                    self.app.pargs.node_name, self.app.pargs.description, self.app.pargs.website]
+        
+        self.app.log.info(' '.join(command))
+        self.app.utils.binary_exec(*command)
+
+        command = ['sudo', 'systemctl', 'stop', name]
+        self.app.log.info(' '.join(command))
+        self.app.utils.binary_exec(*command)
+
+        command = ['sudo', 'systemctl', 'kill', name]
+        self.app.log.info(' '.join(command))
+        self.app.utils.binary_exec(*command)
+
+        command = ['sudo', 'systemctl', 'start', name]
+        self.app.log.info(' '.join(command))
+        self.app.utils.binary_exec(*command)
+
+    @ex(
+        arguments=[
+            (
+                ['-n', '--name'],
+                {
                     'help': 'name of network to get status for',
                     'action': 'store',
                     'dest': 'name'
@@ -474,6 +543,8 @@ class Client(Controller):  # pylint: disable=too-many-ancestors
             return json.loads(requests.get(f'http://{host}:{port}'+stub).content)
 
         status = get('/status')['result']
+        net_info = get('/net_info')['result']
+
         latest_block = int(status['sync_info']['latest_block_height'])
 
         voted = 0
@@ -487,6 +558,8 @@ class Client(Controller):  # pylint: disable=too-many-ancestors
                 voted += 1
 
         outputs = OrderedDict()
+        outputs['node_name'] = status['node_info']['moniker']
+
         outputs['node_block_height'] = status['sync_info']['latest_block_height']
         outputs['node_block_time'] = status['sync_info']['latest_block_time']
 
@@ -506,6 +579,10 @@ class Client(Controller):  # pylint: disable=too-many-ancestors
         else:
             outputs['is_caught_up'] = True
 
+        outputs['peer_count'] = net_info['n_peers']
+        if int(outputs['peer_count']):
+            outputs['peer_names'] = ', '.join([f"{peer['node_info']['moniker']}" for peer in net_info['peers']])
+            
         if voted:
             # Yer a validator, 'arry!
             outputs['is_a_validator'] = True
