@@ -288,6 +288,9 @@ class ClientHelper(HydraHelper):
 
         open(file, 'w+').write(yaml.dump(contents, indent=4))
 
+    def _fetch_my_ip(self):
+        return self.app.utils.binary_exec('curl', '-4', 'https://ifconfig.co').stdout.strip()
+
     def _configure_toml(self, pex, addr_book_strict, peers, private_peers):
 
         self.app.log.info('Updating config.toml')
@@ -297,8 +300,11 @@ class ClientHelper(HydraHelper):
         config['p2p']['pex'] = pex
         self.app.log.info(f'Editing config.toml: p2p.pex = {config["p2p"]["pex"]}')
 
+        config['p2p']['external_address'] = f'tcp://{self._fetch_my_ip()}:46656'
+        self.app.log.info(f'Editing config.toml: p2p.external_address = {config["p2p"]["external_address"]}')
+
         config['p2p']['addr_book_strict'] = addr_book_strict
-        self.app.log.info(f'Editing config.toml: p2p.addr_book_strict = {config["p2p"]["address_book_strict"]}')
+        self.app.log.info(f'Editing config.toml: p2p.addr_book_strict = {config["p2p"]["addr_book_strict"]}')
 
         config['p2p']['private_peer_ids'] = ','.join([nodekey for (ip, pub, nodekey) in peers]) if private_peers else ''
         self.app.log.info(f'Editing config.toml: p2p.private_peer_ids = {config["p2p"]["private_peer_ids"]}')
