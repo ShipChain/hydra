@@ -259,7 +259,7 @@ class ClientHelper(HydraHelper):
 
         # CONFIG.TOML
         self._configure_toml(kwargs['pex'] if 'pex' in kwargs else True,
-                             kwargs['address_book_strict'] if 'address_book_strict' in kwargs else False,
+                             kwargs['addr_book_strict'] if 'addr_book_strict' in kwargs else False,
                              peers,
                              kwargs['private_peers'] if 'private_peers' in kwargs else False)
 
@@ -288,7 +288,7 @@ class ClientHelper(HydraHelper):
 
         open(file, 'w+').write(yaml.dump(contents, indent=4))
 
-    def _configure_toml(self, pex, address_book_strict, peers, private_peers):
+    def _configure_toml(self, pex, addr_book_strict, peers, private_peers):
 
         self.app.log.info('Updating config.toml')
         with open('chaindata/config/config.toml', 'r') as config_toml:
@@ -297,8 +297,8 @@ class ClientHelper(HydraHelper):
         config['p2p']['pex'] = pex
         self.app.log.info(f'Editing config.toml: p2p.pex = {config["p2p"]["pex"]}')
 
-        config['p2p']['address_book_strict'] = address_book_strict
-        self.app.log.info(f'Editing config.toml: p2p.address_book_strict = {config["p2p"]["address_book_strict"]}')
+        config['p2p']['addr_book_strict'] = addr_book_strict
+        self.app.log.info(f'Editing config.toml: p2p.addr_book_strict = {config["p2p"]["address_book_strict"]}')
 
         config['p2p']['private_peer_ids'] = ','.join([nodekey for (ip, pub, nodekey) in peers]) if private_peers else ''
         self.app.log.info(f'Editing config.toml: p2p.private_peer_ids = {config["p2p"]["private_peer_ids"]}')
