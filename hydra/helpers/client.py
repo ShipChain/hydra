@@ -333,11 +333,13 @@ class ClientHelper(HydraHelper):
 
     def _configure_rsyslog(self):
         self.app.log.info('Configuring system log reporting')
-        config = """$ActionQueueType LinkedList # use asynchronous processing
+        config = """
+$ActionQueueType LinkedList # use asynchronous processing
 $ActionQueueFileName srvrfwd # set file name, also enables disk mode
 $ActionResumeRetryCount -1 # infinite retries on insert failure
 $ActionQueueSaveOnShutdown on # save in-memory data if rsyslog shuts down
-if $msg contains "shipchain" or $programname == "start_blockchain.sh" then @@(o)127.0.0.1:6514;RSYSLOG_SyslogProtocol23Format"""
+if $msg contains "shipchain" or $programname == "start_blockchain.sh" then @@(o)127.0.0.1:6514;RSYSLOG_SyslogProtocol23Format
+"""
         with open('/tmp/50-telegraf.conf', 'w+') as conf:
             conf.write(config)
         self.app.utils.binary_exec('sudo', 'mv', '/tmp/50-telegraf.conf', '/etc/rsyslog.d/50-telegraf.conf')
@@ -357,7 +359,7 @@ if $msg contains "shipchain" or $programname == "start_blockchain.sh" then @@(o)
         lsb = distro.lsb_release_info()
         if lsb['distributor_id'].lower() == 'ubuntu':
             self.app.utils.binary_exec('echo', f"\"deb https://repos.influxdata.com/{lsb['distributor_id'].lower()} {lsb['codename']} stable\"", 'sudo', 'tee' '/etc/apt/sources.list.d/influxdb.list')
-            self.app.utils.binary_exec('sudo', 'apt', 'update', '&&', 'sudo', 'apt', 'install', 'telegraf')
+            self.app.utils.binary_exec('sudo', 'apt', 'update', '&&', 'sudo', 'apt', 'install', '-y', 'telegraf')
 
         else:
             # print warning and link to telegraf install
