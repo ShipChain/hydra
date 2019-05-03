@@ -266,6 +266,12 @@ class ClientHelper(HydraHelper):
         # START_BLOCKCHAIN.sh
         self._create_startup_script(peers)
 
+        if self.app.config['hydra']['validator_metrics']:
+            self._configure_rsyslog()
+            influxdb_creds = self._register_validator()
+            self._install_telegraf()
+            self._configure_telegraf(influxdb_creds)
+
         self.app.log.info('Configured!')
 
     def _copy_genesis(self, url, file):
@@ -318,8 +324,73 @@ class ClientHelper(HydraHelper):
         config['p2p']['laddr'] = 'tcp://0.0.0.0:46656'
         self.app.log.info(f'Editing config.toml: p2p.laddr = {config["p2p"]["laddr"]}')
 
+        config['instrumentation']['prometheus'] = 'true' if self.app.config['hydra']['validator_metrics'] else 'false'
+        self.app.log.info(f'Editing config.toml: instrumentation.prometheus = '
+                          f'{config["instrumentation"]["prometheus"]}')
+
         with open('chaindata/config/config.toml', 'w+') as config_toml:
             config_toml.write(toml.dumps(config))
+
+    def _configure_rsyslog(self):
+        self.app.log.info('Configuring system log reporting')
+        config = """$ActionQueueType LinkedList # use asynchronous processing
+$ActionQueueFileName srvrfwd # set file name, also enables disk mode
+$ActionResumeRetryCount -1 # infinite retries on insert failure
+$ActionQueueSaveOnShutdown on # save in-memory data if rsyslog shuts down
+if $msg contains "shipchain" or $programname == "start_blockchain.sh" then @@(o)127.0.0.1:6514;RSYSLOG_SyslogProtocol23Format"""
+        with open('/tmp/50-telegraf.conf', 'w+') as conf:
+            conf.write(config)
+        self.app.utils.binary_exec('sudo', 'mv', '/tmp/50-telegraf.conf', '/etc/rsyslog.d/50-telegraf.conf')
+        # service rsyslog restart
+        self.app.utils.binary_exec('sudo', 'systemctl', 'restart', 'rsyslog')
+
+    def _register_validator(self):
+        self.app.log.info('Initiating registration to ShipChain validator registry')
+        print("I'm a validator, lol!!!1! can haz metrics")
+        return {}
+
+    def _install_telegraf(self):
+        self.app.log.info('Installing telegraf for metrics reporting')
+        self.app.utils.binary_exec('curl', '-sL', 'https://repos.influxdata.com/influxdb.key', '|',
+                                   'sudo' 'apt-key', 'add', '-')
+        import distro
+        lsb = distro.lsb_release_info()
+        if lsb['distributor_id'].lower() == 'ubuntu':
+            self.app.utils.binary_exec('echo', f"\"deb https://repos.influxdata.com/{lsb['distributor_id'].lower()} {lsb['codename']} stable\"", 'sudo', 'tee' '/etc/apt/sources.list.d/influxdb.list')
+            self.app.utils.binary_exec('sudo', 'apt', 'update', '&&', 'sudo', 'apt', 'install', 'telegraf')
+
+        else:
+            # print warning and link to telegraf install
+            self.app.log.warning(f'Automated telegraf installation not supported for {lsb["distributor_id"]}. '
+                                 f'Please see manual installation instructions: '
+                                 f'https://docs.influxdata.com/telegraf/v1.10/introduction/installation/')
+
+    def _configure_telegraf(self, influxdb_creds):
+        self.app.log.info('Updating telegraf config')
+        with open('/etc/telegraf/telegraf.conf', 'r') as config_toml:
+            config = toml.load(config_toml, OrderedDict)
+
+        config['agent']['flush_jitter'] = '5s'
+        config['outputs']['influxdb'] = [
+            {
+                'urls': ['https://metrics.network.shipchain.io:8086']
+            }
+        ]
+        config['inputs']['syslog'] = [
+            {
+                'server': "tcp://:6514"
+            }
+        ]
+        config['inputs']['prometheus'] = [
+            {
+                'urls': ['http://localhost:26660/']
+            }
+        ]
+
+        with open('/tmp/telegraf.conf', 'w+') as config_toml:
+            config_toml.write(toml.dumps(config))
+        self.app.utils.binary_exec('sudo', 'mv', '/tmp/telegraf.conf', '/etc/telegraf/telegraf.conf')
+        self.app.utils.binary_exec('sudo', 'systemctl', 'restart', 'telegraf')
 
     def _create_startup_script(self, peers):
         self.app.log.info('Creating start_blockchain.sh helper script')

@@ -11,3 +11,4 @@ paramiko
 toml
 libtmux
 requests
+distro
