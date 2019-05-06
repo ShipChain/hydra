@@ -467,15 +467,30 @@ class Client(Controller):  # pylint: disable=too-many-ancestors
         with open('chaindata/config/config.toml', 'r') as config_toml:
             config = toml.load(config_toml, OrderedDict)
 
+        # Set tendermint moniker
         config['moniker'] = self.app.pargs.node_name
         self.app.log.info(f'Editing config.toml: moniker = {config["moniker"]}')
 
         with open('chaindata/config/config.toml', 'w+') as config_toml:
             config_toml.write(toml.dumps(config))
 
+        if self.app.config['hydra']['validator_metrics']:
+            # Update moniker tag in telegraf
+            with open('/etc/telegraf/telegraf.conf', 'r') as config_toml:
+                config = toml.load(config_toml, OrderedDict)
 
+            config['global_tags']['moniker'] = self.app.pargs.node_name
+
+            with open('/tmp/telegraf.conf', 'w+') as config_toml:
+                config_toml.write(toml.dumps(config))
+            self.app.utils.binary_exec('sudo', 'mv', '/tmp/telegraf.conf', '/etc/telegraf/telegraf.conf')
+            self.app.utils.binary_exec('sudo', 'systemctl', 'restart', 'telegraf')
+
+            # TODO: Update validator registry
+
+        # Update DPoS info
         command = ['./shipchain', 'call', '-k', 'node_priv.key', 'update_candidate_info',
-                    self.app.pargs.node_name, self.app.pargs.description, self.app.pargs.website]
+                   self.app.pargs.node_name, self.app.pargs.description, self.app.pargs.website]
         
         self.app.log.info(' '.join(command))
         self.app.utils.binary_exec(*command)

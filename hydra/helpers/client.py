@@ -1,6 +1,7 @@
 import base64
 import json
 import os
+import socket
 import stat
 import subprocess
 import time
@@ -9,6 +10,7 @@ from datetime import datetime
 from io import StringIO
 from shutil import rmtree
 
+import distro
 import requests
 import toml
 import yaml
@@ -354,7 +356,6 @@ if $msg contains "shipchain" or $programname == "start_blockchain.sh" then @@(o)
     def _install_telegraf(self):
         self.app.log.info('Installing telegraf for metrics reporting')
 
-        import distro
         lsb = distro.lsb_release_info()
         if lsb['distributor_id'].lower() == 'ubuntu':
             influxdb_key = self.app.utils.binary_exec('curl', '-sL', 'https://repos.influxdata.com/influxdb.key').stdout
@@ -364,8 +365,8 @@ if $msg contains "shipchain" or $programname == "start_blockchain.sh" then @@(o)
                 influxdb_list.write(f"deb https://repos.influxdata.com/{lsb['distributor_id'].lower()} {lsb['codename']} stable")
             self.app.utils.binary_exec('sudo', 'mv', '/tmp/influxdb.list', '/etc/apt/sources.list.d/influxdb.list')
 
-            output = self.app.utils.binary_exec('sudo', 'apt-get', 'update')
-            output = self.app.utils.binary_exec('sudo', 'apt-get', 'install', '-y', 'telegraf')
+            self.app.utils.binary_exec('sudo', 'apt-get', 'update')
+            self.app.utils.binary_exec('sudo', 'apt-get', 'install', '-y', 'telegraf')
 
         else:
             # print warning and link to telegraf install
@@ -375,13 +376,24 @@ if $msg contains "shipchain" or $programname == "start_blockchain.sh" then @@(o)
 
     def _configure_telegraf(self, influxdb_creds):
         self.app.log.info('Updating telegraf config')
+        with open('chaindata/config/config.toml', 'r') as config_toml:
+            tendermint_config = toml.load(config_toml, OrderedDict)
+        if 'moniker' in tendermint_config and tendermint_config['moniker']:
+            moniker = tendermint_config['moniker']
+        else:  # Default to hostname
+            moniker = socket.gethostname()
+
         with open('/etc/telegraf/telegraf.conf', 'r') as config_toml:
             config = toml.load(config_toml, OrderedDict)
 
-        config['agent']['flush_jitter'] = '5s'
+        config['global_tags']['moniker'] = moniker
+        config['agent']['flush_jitter'] = '5s'  # Avoid thundering herd to influxdb
         config['outputs']['influxdb'] = [
             {
-                'urls': ['https://metrics.network.shipchain.io:8086']
+                'urls': ['https://metrics.network.shipchain.io:8086'],
+                # TODO: 'username': influxdb_creds['username'],
+                # TODO: 'password': influxdb_creds['password'],
+                'tagexclude': ['url'],
             }
         ]
         config['inputs']['syslog'] = [
