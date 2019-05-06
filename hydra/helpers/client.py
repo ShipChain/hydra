@@ -353,13 +353,19 @@ if $msg contains "shipchain" or $programname == "start_blockchain.sh" then @@(o)
 
     def _install_telegraf(self):
         self.app.log.info('Installing telegraf for metrics reporting')
-        self.app.utils.binary_exec('curl', '-sL', 'https://repos.influxdata.com/influxdb.key', '|',
-                                   'sudo' 'apt-key', 'add', '-')
+
         import distro
         lsb = distro.lsb_release_info()
         if lsb['distributor_id'].lower() == 'ubuntu':
-            self.app.utils.binary_exec('echo', f"\"deb https://repos.influxdata.com/{lsb['distributor_id'].lower()} {lsb['codename']} stable\"", 'sudo', 'tee' '/etc/apt/sources.list.d/influxdb.list')
-            self.app.utils.binary_exec('sudo', 'apt', 'update', '&&', 'sudo', 'apt', 'install', '-y', 'telegraf')
+            influxdb_key = self.app.utils.binary_exec('curl', '-sL', 'https://repos.influxdata.com/influxdb.key').stdout
+            self.app.utils.binary_exec('sudo', 'apt-key', 'add', influxdb_key)
+
+            with open('/tmp/influxdb.list', 'w+') as influxdb_list:
+                influxdb_list.write(f"deb https://repos.influxdata.com/{lsb['distributor_id'].lower()} {lsb['codename']} stable")
+            self.app.utils.binary_exec('sudo', 'mv', '/tmp/influxdb.list', '/etc/apt/sources.list.d/influxdb.list')
+
+            output = self.app.utils.binary_exec('sudo', 'apt-get', 'update')
+            output = self.app.utils.binary_exec('sudo', 'apt-get', 'install', '-y', 'telegraf')
 
         else:
             # print warning and link to telegraf install
