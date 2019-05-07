@@ -358,8 +358,7 @@ if $msg contains "shipchain" or $programname == "start_blockchain.sh" then @@(o)
 
         lsb = distro.lsb_release_info()
         if lsb['distributor_id'].lower() == 'ubuntu':
-            influxdb_key = self.app.utils.binary_exec('curl', '-sL', 'https://repos.influxdata.com/influxdb.key').stdout
-            self.app.utils.binary_exec('sudo', 'apt-key', 'add', influxdb_key)
+            self.app.utils.binary_exec('sudo', 'apt-key', 'adv', '--fetch-keys', 'https://repos.influxdata.com/influxdb.key')
 
             with open('/tmp/influxdb.list', 'w+') as influxdb_list:
                 influxdb_list.write(f"deb https://repos.influxdata.com/{lsb['distributor_id'].lower()} {lsb['codename']} stable")
@@ -367,6 +366,7 @@ if $msg contains "shipchain" or $programname == "start_blockchain.sh" then @@(o)
 
             self.app.utils.binary_exec('sudo', 'apt-get', 'update')
             self.app.utils.binary_exec('sudo', 'apt-get', 'install', '-y', 'telegraf')
+            self.app.utils.binary_exec('sudo', 'systemctl', 'enable', 'telegraf')
 
         else:
             # print warning and link to telegraf install
