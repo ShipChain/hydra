@@ -15,7 +15,7 @@ with open('requirements.txt') as f:
         if line.startswith('-e git://'):
             # Handle non-pypi dependencies
             # stackoverflow.com/questions/17366784/setuptools-unable-to-use-link-from-dependency-links/17442663#17442663
-            package = line.split('#egg=')[1].replace('-', '<=')
+            package = line.split('#egg=')[1].replace('-', '==')
             install_requires.append(package)
             dependency_links.append(f'{line.split("-e ")[1]}')
         else:
