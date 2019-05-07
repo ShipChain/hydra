@@ -51,7 +51,7 @@ class Client(Controller):  # pylint: disable=too-many-ancestors
 
         cfg['hydra']['channel_url'] = self.app.pargs.url
 
-        open(self.app.config_file, 'w+').write(yaml.dump(cfg, indent=4))
+        open(self.app.config_file, 'w+').write(yaml.dump(cfg, indent=4, default_flow_style=False))
 
     @ex(
         arguments=[
@@ -491,7 +491,7 @@ class Client(Controller):  # pylint: disable=too-many-ancestors
         # Update DPoS info
         command = ['./shipchain', 'call', '-k', 'node_priv.key', 'update_candidate_info',
                    self.app.pargs.node_name, self.app.pargs.description, self.app.pargs.website]
-        
+
         self.app.log.info(' '.join(command))
         self.app.utils.binary_exec(*command)
 
@@ -597,7 +597,7 @@ class Client(Controller):  # pylint: disable=too-many-ancestors
         outputs['peer_count'] = net_info['n_peers']
         if int(outputs['peer_count']):
             outputs['peer_names'] = ', '.join([f"{peer['node_info']['moniker']}" for peer in net_info['peers']])
-            
+
         if voted:
             # Yer a validator, 'arry!
             outputs['is_a_validator'] = True
@@ -608,3 +608,56 @@ class Client(Controller):  # pylint: disable=too-many-ancestors
             outputs['is_a_validator'] = False
 
         self.app.smart_render(outputs, 'key-value-print.jinja2')
+
+    @ex(
+        arguments=[
+            (
+                ['-n', '--name'],
+                {
+                    'help': 'name of network to get status for',
+                    'action': 'store',
+                    'dest': 'name'
+                }
+            ),
+        ]
+    )
+    def enable_metrics(self):
+        name = self.app.utils.env_or_arg(
+            'name', 'HYDRA_NETWORK', or_path='.hydra_network', required=True)
+
+        destination = self.app.utils.path(name)
+
+        os.chdir(destination)
+
+        self.app.config['hydra']['validator_metrics'] = 'true'
+        with open(self.app.config_file, 'r+') as config_file:
+            cfg = yaml.load(config_file)
+        cfg['hydra']['validator_metrics'] = 'true'
+        open(self.app.config_file, 'w+').write(yaml.dump(cfg, indent=4, default_flow_style=False))
+
+        # Install, configure and enable telegraf service
+        self.app.client.configure_metrics()
+
+    @ex()
+    def disable_metrics(self):
+        self.app.config['hydra']['validator_metrics'] = 'false'
+        with open(self.app.config_file, 'r+') as config_file:
+            cfg = yaml.load(config_file)
+        cfg['hydra']['validator_metrics'] = 'false'
+        open(self.app.config_file, 'w+').write(yaml.dump(cfg, indent=4, default_flow_style=False))
+
+        # Stop and disable telegraf service
+        service_name = f'telegraf.service'
+
+        self.app.log.info(f'Disabling {service_name}')
+
+        self.app.utils.binary_exec('sudo', 'systemctl', 'stop', service_name)
+        self.app.utils.binary_exec('sudo', 'systemctl', 'disable', service_name)
+        self.app.utils.binary_exec('sudo', 'systemctl', 'reset-failed', service_name)
+        self.app.utils.binary_exec('sudo', 'systemctl', 'daemon-reload')
+
+        # Disable rsyslog port
+        self.app.utils.binary_exec('sudo', 'rm', '/etc/rsyslog.d/50-telegraf.conf')
+        self.app.utils.binary_exec('sudo', 'systemctl', 'restart', 'rsyslog')
+
+        self.app.log.info(f'Successfully disabled all metrics reporting.')

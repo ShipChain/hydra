@@ -77,7 +77,6 @@ class ClientHelper(HydraHelper):
         self.app.utils.binary_exec('sudo', 'systemctl', 'stop', service_name)
         self.app.utils.binary_exec('sudo', 'systemctl', 'disable', service_name)
         self.app.utils.binary_exec('sudo', 'systemctl', 'reset-failed', service_name)
-        self.app.utils.binary_exec('sudo', 'rm', systemd_service)
         self.app.utils.binary_exec('sudo', 'systemctl', 'daemon-reload')
 
     def find_and_kill_executable(self, destination):
@@ -268,13 +267,16 @@ class ClientHelper(HydraHelper):
         # START_BLOCKCHAIN.sh
         self._create_startup_script(peers)
 
-        if self.app.config['hydra']['validator_metrics']:
+        self.configure_metrics()
+
+        self.app.log.info('Configured!')
+
+    def configure_metrics(self):
+        if self.app.config['hydra'].getboolean('validator_metrics'):
             self._configure_rsyslog()
             influxdb_creds = self._register_validator()
             self._install_telegraf()
             self._configure_telegraf(influxdb_creds)
-
-        self.app.log.info('Configured!')
 
     def _copy_genesis(self, url, file):
         self.app.log.info(f'Copying {url} to {file}')
@@ -326,7 +328,7 @@ class ClientHelper(HydraHelper):
         config['p2p']['laddr'] = 'tcp://0.0.0.0:46656'
         self.app.log.info(f'Editing config.toml: p2p.laddr = {config["p2p"]["laddr"]}')
 
-        config['instrumentation']['prometheus'] = 'true' if self.app.config['hydra']['validator_metrics'] else 'false'
+        config['instrumentation']['prometheus'] = 'true' if self.app.config['hydra'].getboolean('validator_metrics') else 'false'
         self.app.log.info(f'Editing config.toml: instrumentation.prometheus = '
                           f'{config["instrumentation"]["prometheus"]}')
 
