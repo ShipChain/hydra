@@ -272,7 +272,7 @@ class ClientHelper(HydraHelper):
         self.app.log.info('Configured!')
 
     def configure_metrics(self):
-        if self.app.config['hydra'].getboolean('validator_metrics'):
+        if self.app.utils.config_getboolean('hydra', 'validator_metrics'):
             self._configure_rsyslog()
             influxdb_creds = self._register_validator()
             self._install_telegraf()
@@ -328,7 +328,7 @@ class ClientHelper(HydraHelper):
         config['p2p']['laddr'] = 'tcp://0.0.0.0:46656'
         self.app.log.info(f'Editing config.toml: p2p.laddr = {config["p2p"]["laddr"]}')
 
-        config['instrumentation']['prometheus'] = 'true' if self.app.config['hydra'].getboolean('validator_metrics') else 'false'
+        config['instrumentation']['prometheus'] = 'true' if self.app.utils.config_getboolean('hydra', 'validator_metrics') else 'false'
         self.app.log.info(f'Editing config.toml: instrumentation.prometheus = '
                           f'{config["instrumentation"]["prometheus"]}')
 

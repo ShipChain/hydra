@@ -1,4 +1,4 @@
--e git://github.com/ShipChain/cement.git@ac90d8e19026efe0b57cece3cbfd8bfb6891d3e5#egg=cement-3.0.4
+cement>=3.0.0
 jinja2
 pyyaml==3.13
 colorlog

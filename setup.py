@@ -1,5 +1,5 @@
-
 from setuptools import setup, find_packages
+
 from hydra.core.version import get_version
 
 VERSION = get_version()
@@ -9,17 +9,9 @@ LONG_DESCRIPTION = f.read()
 f.close()
 
 install_requires = []
-dependency_links = []
 with open('requirements.txt') as f:
     for line in f.read().splitlines():
-        if line.startswith('-e git://'):
-            # Handle non-pypi dependencies
-            # stackoverflow.com/questions/17366784/setuptools-unable-to-use-link-from-dependency-links/17442663#17442663
-            package = line.split('#egg=')[1].replace('-', '==')
-            install_requires.append(package)
-            dependency_links.append(f'{line.split("-e ")[1]}')
-        else:
-            install_requires.append(line)
+        install_requires.append(line)
 
 setup(
     name='hydra',
@@ -52,7 +44,6 @@ setup(
     package_data={'hydra': ['templates/*']},
     include_package_data=True,
     install_requires=install_requires,
-    dependency_links=dependency_links,
     entry_points="""
         [console_scripts]
         hydra = hydra.main:main
