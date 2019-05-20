@@ -4,7 +4,8 @@ pyyaml==3.13
 colorlog
 pyfiglet
 colored
-boto3
+boto3>=1.9.28
+urllib3<1.25,>=1.20
 troposphere
 paramiko
 toml
