@@ -49,13 +49,6 @@ class UtilsHelper(HydraHelper):
     BOOLEAN_STATES = {'1': True, 'yes': True, 'true': True, 'on': True,
                       '0': False, 'no': False, 'false': False, 'off': False}
 
-    def config_getboolean(self, scope, key):
-        value = self.app.config[scope][key]
-        # Temporary workaround for https://github.com/datafolklabs/cement/issues/558
-        if value.lower() not in self.BOOLEAN_STATES:
-            raise ValueError('Not a boolean: %s' % value)
-        return self.BOOLEAN_STATES[value.lower()]
-
     def env_or_arg(self, arg_name, env_name, or_path=None, required=False):
         # pargs has default value of None if argument not provided
         value = getattr(self.app.pargs, arg_name)

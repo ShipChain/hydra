@@ -272,11 +272,16 @@ class ClientHelper(HydraHelper):
         self.app.log.info('Configured!')
 
     def configure_metrics(self):
-        if self.app.utils.config_getboolean('hydra', 'validator_metrics'):
-            self._configure_rsyslog()
-            influxdb_creds = self._register_validator()
-            self._install_telegraf()
-            self._configure_telegraf(influxdb_creds)
+        if self.app.utils.config['hydra'].getboolean('validator_metrics'):
+            try:
+                validator_info = json.load(open('.validator-info.json', 'r'))
+                self._configure_rsyslog()
+                self._install_telegraf()
+                self._configure_telegraf(validator_info['email'], validator_info['influxdb_pass'])
+            except FileNotFoundError:
+                self.app.log.error("Validator info not set, please run 'hydra client set-info' "
+                                   "before attempting to configure metrics")
+                return
 
     def _copy_genesis(self, url, file):
         self.app.log.info(f'Copying {url} to {file}')
@@ -328,14 +333,11 @@ class ClientHelper(HydraHelper):
         config['p2p']['laddr'] = 'tcp://0.0.0.0:46656'
         self.app.log.info(f'Editing config.toml: p2p.laddr = {config["p2p"]["laddr"]}')
 
-        config['instrumentation']['prometheus'] = 'true' if self.app.utils.config_getboolean('hydra', 'validator_metrics') else 'false'
-        self.app.log.info(f'Editing config.toml: instrumentation.prometheus = '
-                          f'{config["instrumentation"]["prometheus"]}')
-
         with open('chaindata/config/config.toml', 'w+') as config_toml:
             config_toml.write(toml.dumps(config))
 
     def _configure_rsyslog(self):
+        # This rsyslog config file filters system logs for messages related to ShipChain, and exposes them for telegraf
         self.app.log.info('Configuring system log reporting')
         config = """
 $ActionQueueType LinkedList # use asynchronous processing
@@ -349,11 +351,6 @@ if $msg contains "shipchain" or $programname == "start_blockchain.sh" then @@(o)
         self.app.utils.binary_exec('sudo', 'mv', '/tmp/50-telegraf.conf', '/etc/rsyslog.d/50-telegraf.conf')
         # service rsyslog restart
         self.app.utils.binary_exec('sudo', 'systemctl', 'restart', 'rsyslog')
-
-    def _register_validator(self):
-        self.app.log.info('Initiating registration to ShipChain validator registry')
-        print("I'm a validator, lol!!!1! can haz metrics")
-        return {}
 
     def _install_telegraf(self):
         self.app.log.info('Installing telegraf for metrics reporting')
@@ -376,7 +373,7 @@ if $msg contains "shipchain" or $programname == "start_blockchain.sh" then @@(o)
                                  f'Please see manual installation instructions: '
                                  f'https://docs.influxdata.com/telegraf/v1.10/introduction/installation/')
 
-    def _configure_telegraf(self, influxdb_creds):
+    def _configure_telegraf(self, influxdb_username, influxdb_password):
         self.app.log.info('Updating telegraf config')
         with open('chaindata/config/config.toml', 'r') as config_toml:
             tendermint_config = toml.load(config_toml, OrderedDict)
@@ -393,8 +390,9 @@ if $msg contains "shipchain" or $programname == "start_blockchain.sh" then @@(o)
         config['outputs']['influxdb'] = [
             {
                 'urls': ['https://metrics.network.shipchain.io:8086'],
-                # TODO: 'username': influxdb_creds['username'],
-                # TODO: 'password': influxdb_creds['password'],
+                'skip_database_creation': True,
+                'username': influxdb_username,
+                'password': influxdb_password,
                 'tagexclude': ['url'],
             }
         ]
@@ -405,7 +403,7 @@ if $msg contains "shipchain" or $programname == "start_blockchain.sh" then @@(o)
         ]
         config['inputs']['prometheus'] = [
             {
-                'urls': ['http://localhost:26660/']
+                'urls': ['http://localhost:46658/metrics']
             }
         ]
 

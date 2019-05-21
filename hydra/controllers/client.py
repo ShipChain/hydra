@@ -1,13 +1,15 @@
+import getpass
 import json
 import os
 from collections import OrderedDict
 from shutil import rmtree
 
-import toml
 import requests
+import toml
 import yaml
-import sys
 from cement import Controller, ex
+from cement.utils.shell import Prompt
+from requests.auth import HTTPBasicAuth
 
 from hydra.core.exc import HydraError
 
@@ -435,24 +437,41 @@ class Client(Controller):  # pylint: disable=too-many-ancestors
                     'dest': 'name'
                 }
             ),
-            (['node_name'],
+            (
+                ['--node_name'],
                 {
-                        'help': 'the new name of the node',
-                        'action': 'store'
+                    'help': 'the new name of the node',
+                    'action': 'store'
                 }
             ),
-            (['description'],
+            (
+                ['--description'],
                 {
-                        'help': 'the new description of the node',
-                        'action': 'store'
+                    'help': 'the new description of the node',
+                    'action': 'store'
                 }
             ),
-            (['website'],
+            (
+                ['--website'],
                 {
-                        'help': 'the new website of the node',
-                        'action': 'store'
+                    'help': 'the new website of the node',
+                    'action': 'store'
                 }
-            )
+            ),
+            (
+                ['--primary_contact'],
+                {
+                    'help': 'the new name of the primary contact for the node',
+                    'action': 'store'
+                }
+            ),
+            (
+                ['--email'],
+                {
+                    'help': 'the new email of the node (cannot change once set)',
+                    'action': 'store'
+                }
+            ),
         ]
     )
     def set_info(self):
@@ -463,14 +482,64 @@ class Client(Controller):  # pylint: disable=too-many-ancestors
 
         os.chdir(destination)
 
+        info = {
+            'node_name': None,
+            'description': None,
+            'website': None,
+            'email': None,
+            'primary_contact': None
+        }
+
+        try:
+            info.update(json.load(open('.validator-info.json', 'r')))
+        except FileNotFoundError:
+            # First time
+            pass
+
+        if self.app.pargs.node_name:
+            info['node_name'] = self.app.pargs.node_name
+        if self.app.pargs.description:
+            info['description'] = self.app.pargs.description
+        if self.app.pargs.website:
+            info['website'] = self.app.pargs.website
+        if self.app.pargs.email:
+            info['email'] = self.app.pargs.email
+        if self.app.pargs.primary_contact:
+            info['primary_contact'] = self.app.pargs.primary_contact
+
+        for key, value in info.items():  # Validate presence of all info, prompt if it doesn't exist
+            if not value:
+                p = Prompt(f'Please provide a value for {key}:')
+                info[key] = p.input
+
+        self.app.log.info(json.dumps({**info, 'influxdb_pass': '******'}, indent=2))
+        p = Prompt('Please verify the above configuration before continuing [y/n]:')
+        if not p.input.lower().startswith('y'):
+            return
+
+        json.dump(info, open('.validator-info.json', 'w'), indent=2)
+
+        # Update DPoS info
+        command = ['./shipchain', 'call', '-k', 'node_priv.key', 'update_candidate_info',
+                   info['node_name'], info['description'], info['website']]
+
+        self.app.log.info(' '.join(command))
+        cmd_output = self.app.utils.binary_exec(*command).stdout.strip()
+        if cmd_output == 'Candidate record not found.':
+            # Node is not a validator.
+            self.app.log.error('This node is not registered as a validator. Cannot set-info yet.')
+            return
+        elif 'connection refused' in cmd_output:
+            self.app.log.error('Could not find a running node for querying validator status. '
+                               'Try "hydra client start-service"')
+            return
+
+        # Set tendermint moniker
         self.app.log.info('Updating config.toml')
         with open('chaindata/config/config.toml', 'r') as config_toml:
             config = toml.load(config_toml, OrderedDict)
-
-        # Set tendermint moniker
-        config['moniker'] = self.app.pargs.node_name
+        config['moniker'] = info['node_name']
         self.app.log.info(f'Editing config.toml: moniker = {config["moniker"]}')
-
         with open('chaindata/config/config.toml', 'w+') as config_toml:
             config_toml.write(toml.dumps(config))
 
@@ -479,21 +548,62 @@ class Client(Controller):  # pylint: disable=too-many-ancestors
             with open('/etc/telegraf/telegraf.conf', 'r') as config_toml:
                 config = toml.load(config_toml, OrderedDict)
 
-            config['global_tags']['moniker'] = self.app.pargs.node_name
+            config['global_tags']['moniker'] = info['node_name']
 
             with open('/tmp/telegraf.conf', 'w+') as config_toml:
                 config_toml.write(toml.dumps(config))
             self.app.utils.binary_exec('sudo', 'mv', '/tmp/telegraf.conf', '/etc/telegraf/telegraf.conf')
             self.app.utils.binary_exec('sudo', 'systemctl', 'restart', 'telegraf')
 
-            # TODO: Update validator registry
+        # Read .bootstrap.json
+        bootstrap = json.load(open('.bootstrap.json', 'r'))
 
-        # Update DPoS info
-        command = ['./shipchain', 'call', '-k', 'node_priv.key', 'update_candidate_info',
-                   self.app.pargs.node_name, self.app.pargs.description, self.app.pargs.website]
+        # Attempt to register (upsert, also creates user if doesn't exist)
+        self.app.log.info('Updating ShipChain validator registry')
+        params = {
+            'node_name': info['node_name'],
+            'description': info['description'],
+            'website': info['website'],
+            'email': info['email'],
+            'primary_contact': info['primary_contact'],
+            'node_key': bootstrap['nodekey'],
+            'public_key': bootstrap['pubkey'],
+            'loom_address_hex': bootstrap['hex_address'],
+            'loom_address_b64': bootstrap['b64_address']
+        }
+        response = requests.post('https://registry.network.shipchain.io/validators/',
+                                 json=params)
+        response_json = response.json()
 
-        self.app.log.info(' '.join(command))
-        self.app.utils.binary_exec(*command)
+        if response.status_code == 400:
+            registry_auth = None
+            if 'email' in response_json and 'user exists' in response_json['email'][0]:
+                # User already exists, requests require auth
+                password = getpass.getpass('Enter your password to the ShipChain validator registry:')
+                registry_auth = HTTPBasicAuth(params['email'], password)
+
+            if 'node_key' in response_json and 'already exists' in response_json['node_key'][0]:
+                # Node exists, update instead of create
+                response = requests.put(f'https://registry.network.shipchain.io/validators/{params["node_key"]}',
+                                        json=params, auth=registry_auth)
+                if response.status_code != 200:
+                    # TODO: handle error updating
+                    self.app.log.error(f'Error from registry: {response.content}')
+                    return
+            else:
+                response = requests.post('https://registry.network.shipchain.io/validators/',
+                                         json=params, auth=registry_auth)
+                if response.status_code != 201:
+                    # TODO: handle error creating
+                    self.app.log.error(f'Error from registry: {response.content}')
+                    return
+
+            response_json = response.json()
+
+        info.update(response_json)
+        json.dump(info, open('.validator-info.json', 'w'), indent=2)
+
+        self.app.log.info('Successfully updated ShipChain validator registry.')
 
         command = ['sudo', 'systemctl', 'stop', name]
         self.app.log.info(' '.join(command))
@@ -638,8 +748,26 @@ class Client(Controller):  # pylint: disable=too-many-ancestors
         # Install, configure and enable telegraf service
         self.app.client.configure_metrics()
 
-    @ex()
+    @ex(
+        arguments=[
+            (
+                ['-n', '--name'],
+                {
+                    'help': 'name of network to get status for',
+                    'action': 'store',
+                    'dest': 'name'
+                }
+            ),
+        ]
+    )
     def disable_metrics(self):
+        name = self.app.utils.env_or_arg(
+            'name', 'HYDRA_NETWORK', or_path='.hydra_network', required=True)
+
+        destination = self.app.utils.path(name)
+
+        os.chdir(destination)
+
         self.app.config['hydra']['validator_metrics'] = 'false'
         with open(self.app.config_file, 'r+') as config_file:
             cfg = yaml.load(config_file)
