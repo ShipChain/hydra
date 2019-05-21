@@ -313,6 +313,9 @@ class ClientHelper(HydraHelper):
                     # TODO: handle error creating
                     self.app.log.error(f'Error from registry: {response.content}')
                     return None
+                else:
+                    self.app.log.info(f'Successfully created user for {params["email"]}. '
+                                      f'Expect a password reset email to arrive shortly.')
 
             response_json = response.json()
 
