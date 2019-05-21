@@ -1,4 +1,3 @@
-import getpass
 import json
 import os
 from collections import OrderedDict
@@ -9,7 +8,6 @@ import toml
 import yaml
 from cement import Controller, ex
 from cement.utils.shell import Prompt
-from requests.auth import HTTPBasicAuth
 
 from hydra.core.exc import HydraError
 
@@ -512,7 +510,8 @@ class Client(Controller):  # pylint: disable=too-many-ancestors
                 p = Prompt(f'Please provide a value for {key}:')
                 info[key] = p.input
 
-        self.app.log.info(json.dumps({**info, 'influxdb_pass': '******'}, indent=2))
+        self.app.log.info(json.dumps({k: v for k, v in info.items() if k not in ('influxdb_pass', 'registered_ip')},
+                                     indent=2))
         p = Prompt('Please verify the above configuration before continuing [y/n]:')
         if not p.input.lower().startswith('y'):
             return
@@ -545,65 +544,30 @@ class Client(Controller):  # pylint: disable=too-many-ancestors
 
         if self.app.config['hydra']['validator_metrics']:
             # Update moniker tag in telegraf
-            with open('/etc/telegraf/telegraf.conf', 'r') as config_toml:
-                config = toml.load(config_toml, OrderedDict)
+            try:
+                with open('/etc/telegraf/telegraf.conf', 'r') as config_toml:
+                    config = toml.load(config_toml, OrderedDict)
 
-            config['global_tags']['moniker'] = info['node_name']
+                config['global_tags']['moniker'] = info['node_name']
 
-            with open('/tmp/telegraf.conf', 'w+') as config_toml:
-                config_toml.write(toml.dumps(config))
-            self.app.utils.binary_exec('sudo', 'mv', '/tmp/telegraf.conf', '/etc/telegraf/telegraf.conf')
-            self.app.utils.binary_exec('sudo', 'systemctl', 'restart', 'telegraf')
+                with open('/tmp/telegraf.conf', 'w+') as config_toml:
+                    config_toml.write(toml.dumps(config))
+                self.app.utils.binary_exec('sudo', 'mv', '/tmp/telegraf.conf', '/etc/telegraf/telegraf.conf')
+                self.app.utils.binary_exec('sudo', 'systemctl', 'restart', 'telegraf')
+            except FileNotFoundError:
+                # Telegraf not installed yet, can skip this
+                pass
 
         # Read .bootstrap.json
         bootstrap = json.load(open('.bootstrap.json', 'r'))
 
         # Attempt to register (upsert, also creates user if doesn't exist)
-        self.app.log.info('Updating ShipChain validator registry')
-        params = {
-            'node_name': info['node_name'],
-            'description': info['description'],
-            'website': info['website'],
-            'email': info['email'],
-            'primary_contact': info['primary_contact'],
-            'node_key': bootstrap['nodekey'],
-            'public_key': bootstrap['pubkey'],
-            'loom_address_hex': bootstrap['hex_address'],
-            'loom_address_b64': bootstrap['b64_address']
-        }
-        response = requests.post('https://registry.network.shipchain.io/validators/',
-                                 json=params)
-        response_json = response.json()
+        registry_details = self.app.client.update_validator_registry(info, bootstrap)
 
-        if response.status_code == 400:
-            registry_auth = None
-            if 'email' in response_json and 'user exists' in response_json['email'][0]:
-                # User already exists, requests require auth
-                password = getpass.getpass('Enter your password to the ShipChain validator registry:')
-                registry_auth = HTTPBasicAuth(params['email'], password)
-
-            if 'node_key' in response_json and 'already exists' in response_json['node_key'][0]:
-                # Node exists, update instead of create
-                response = requests.put(f'https://registry.network.shipchain.io/validators/{params["node_key"]}',
-                                        json=params, auth=registry_auth)
-                if response.status_code != 200:
-                    # TODO: handle error updating
-                    self.app.log.error(f'Error from registry: {response.content}')
-                    return
-            else:
-                response = requests.post('https://registry.network.shipchain.io/validators/',
-                                         json=params, auth=registry_auth)
-                if response.status_code != 201:
-                    # TODO: handle error creating
-                    self.app.log.error(f'Error from registry: {response.content}')
-                    return
-
-            response_json = response.json()
-
-        info.update(response_json)
-        json.dump(info, open('.validator-info.json', 'w'), indent=2)
-
-        self.app.log.info('Successfully updated ShipChain validator registry.')
+        if registry_details:
+            info.update(registry_details)
+            json.dump(info, open('.validator-info.json', 'w'), indent=2)
+            self.app.log.info('Successfully updated ShipChain validator registry.')
 
         command = ['sudo', 'systemctl', 'stop', name]
         self.app.log.info(' '.join(command))

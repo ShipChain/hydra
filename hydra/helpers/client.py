@@ -1,4 +1,5 @@
 import base64
+import getpass
 import json
 import os
 import socket
@@ -14,6 +15,7 @@ import distro
 import requests
 import toml
 import yaml
+from requests.auth import HTTPBasicAuth
 
 from hydra.core.exc import HydraError
 from hydra.core.version import get_version
@@ -270,6 +272,51 @@ class ClientHelper(HydraHelper):
         self.configure_metrics()
 
         self.app.log.info('Configured!')
+
+    def update_validator_registry(self, info, bootstrap):
+        # Upserts the validator's info in the ShipChain validator registry
+        self.app.log.info('Updating ShipChain validator registry')
+        params = {
+            'node_name': info['node_name'],
+            'description': info['description'],
+            'website': info['website'],
+            'email': info['email'],
+            'primary_contact': info['primary_contact'],
+            'node_key': bootstrap['nodekey'],
+            'public_key': bootstrap['pubkey'],
+            'loom_address_hex': bootstrap['hex_address'],
+            'loom_address_b64': bootstrap['b64_address']
+        }
+        response = requests.post('https://registry.network.shipchain.io/validators/',
+                                 json=params)
+        response_json = response.json()
+
+        if response.status_code == 400:
+            registry_auth = None
+            if 'email' in response_json and 'user exists' in response_json['email'][0]:
+                # User already exists, requests require auth
+                password = getpass.getpass('Enter your password to the ShipChain validator registry:')
+                registry_auth = HTTPBasicAuth(params['email'], password)
+
+            if 'node_key' in response_json and 'already exists' in response_json['node_key'][0]:
+                # Node exists, update instead of create
+                response = requests.put(f'https://registry.network.shipchain.io/validators/{params["node_key"]}',
+                                        json=params, auth=registry_auth)
+                if response.status_code != 200:
+                    # TODO: handle error updating
+                    self.app.log.error(f'Error from registry: {response.content}')
+                    return None
+            else:
+                response = requests.post('https://registry.network.shipchain.io/validators/',
+                                         json=params, auth=registry_auth)
+                if response.status_code != 201:
+                    # TODO: handle error creating
+                    self.app.log.error(f'Error from registry: {response.content}')
+                    return None
+
+            response_json = response.json()
+
+        return response_json
 
     def configure_metrics(self):
         if self.app.utils.config['hydra'].getboolean('validator_metrics'):
