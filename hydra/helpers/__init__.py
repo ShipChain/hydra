@@ -46,6 +46,9 @@ class HydraHelper:
 
 
 class UtilsHelper(HydraHelper):
+    BOOLEAN_STATES = {'1': True, 'yes': True, 'true': True, 'on': True,
+                      '0': False, 'no': False, 'false': False, 'off': False}
+
     def env_or_arg(self, arg_name, env_name, or_path=None, required=False):
         # pargs has default value of None if argument not provided
         value = getattr(self.app.pargs, arg_name)

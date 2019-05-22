@@ -1,5 +1,5 @@
-
 from setuptools import setup, find_packages
+
 from hydra.core.version import get_version
 
 VERSION = get_version()
@@ -8,8 +8,10 @@ f = open('README.md', 'r')
 LONG_DESCRIPTION = f.read()
 f.close()
 
+install_requires = []
 with open('requirements.txt') as f:
-    requirements = f.read().splitlines()
+    for line in f.read().splitlines():
+        install_requires.append(line)
 
 setup(
     name='hydra',
@@ -41,7 +43,7 @@ setup(
     packages=find_packages(exclude=['ez_setup', 'tests*']),
     package_data={'hydra': ['templates/*']},
     include_package_data=True,
-    install_requires=requirements,
+    install_requires=install_requires,
     entry_points="""
         [console_scripts]
         hydra = hydra.main:main
