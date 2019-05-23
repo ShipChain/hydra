@@ -712,6 +712,8 @@ class Client(Controller):  # pylint: disable=too-many-ancestors
         # Install, configure and enable telegraf service
         self.app.client.configure_metrics()
 
+        self.restart_service()
+
     @ex(
         arguments=[
             (
@@ -752,4 +754,5 @@ class Client(Controller):  # pylint: disable=too-many-ancestors
         self.app.utils.binary_exec('sudo', 'rm', '/etc/rsyslog.d/50-telegraf.conf')
         self.app.utils.binary_exec('sudo', 'systemctl', 'restart', 'rsyslog')
 
+        self.restart_service()
         self.app.log.info(f'Successfully disabled all metrics reporting.')

@@ -322,6 +322,16 @@ class ClientHelper(HydraHelper):
         return response_json
 
     def configure_metrics(self):
+        self.app.log.info('Updating config.toml')
+        with open('chaindata/config/config.toml', 'r') as config_toml:
+            config = toml.load(config_toml, OrderedDict)
+
+        config['instrumentation']['prometheus'] = 'true' if self.app.config['hydra'].getboolean('validator_metrics') else 'false'
+        self.app.log.info(f'Editing config.toml: p2p.laddr = {config["instrumentation"]["prometheus"]}')
+
+        with open('chaindata/config/config.toml', 'w+') as config_toml:
+            config_toml.write(toml.dumps(config))
+
         if self.app.utils.config['hydra'].getboolean('validator_metrics'):
             try:
                 validator_info = json.load(open('.validator-info.json', 'r'))
