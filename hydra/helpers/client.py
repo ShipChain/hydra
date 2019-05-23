@@ -456,6 +456,11 @@ if $msg contains "shipchain" or $programname == "start_blockchain.sh" then @@(o)
                 'urls': ['http://localhost:46658/metrics']
             }
         ]
+        config['inputs']['net'] = [
+            {
+                'ignore_protocol_stats': True
+            }
+        ]
 
         with open('/tmp/telegraf.conf', 'w+') as config_toml:
             config_toml.write(toml.dumps(config))
