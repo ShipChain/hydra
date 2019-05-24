@@ -394,7 +394,7 @@ class ClientHelper(HydraHelper):
                 validator_info = json.load(open('.validator-info.json', 'r'))
                 self._configure_rsyslog()
                 self._install_telegraf()
-                self._configure_telegraf(validator_info['email'], validator_info['influxdb_pass'])
+                self._configure_telegraf(validator_info['node_key'], validator_info['influxdb_pass'])
             except FileNotFoundError:
                 self.app.log.error("Validator info not set, please run 'hydra client set-info' "
                                    "before attempting to configure metrics")
