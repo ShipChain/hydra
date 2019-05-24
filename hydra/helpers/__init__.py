@@ -6,6 +6,7 @@ import libtmux
 import requests
 from colored import fg, attr
 from pyfiglet import Figlet
+from tqdm import tqdm
 
 from hydra.core.exc import HydraError
 
@@ -113,6 +114,34 @@ class UtilsHelper(HydraHelper):
         self.app.log.debug(f'Downloading: {destination} from {url}')
         open(destination, 'wb+').write(requests.get(url).content)
 
+    def download_file_stream(self, destination, url, show_progress=True):
+        """
+        Download a file from a URL.  This supports
+        :param destination:
+        :param url:
+        :return:
+        """
+        self.app.log.info(f'Downloading: {destination}')
+        with requests.get(url, stream=True) as request_stream, open(destination, 'wb') as file_stream:
+            total_bytes = request_stream.headers['Content-Length']
+            self.app.log.debug(f'Retrieving {total_bytes} bytes from {url}')
+            with TqdmProgressBar(unit='B', unit_scale=True, miniters=1, desc=destination) as progressbar:
+                self._copyfileobj_progress(request_stream.raw, file_stream, total_bytes, progressbar)
+
+    def _copyfileobj_progress(self, source_stream, destination_stream, total_bytes, progressbar, chunk_size=16 * 1024):
+        """
+        copy data from file-like object source_stream to file-like object destination_stream
+        Borrowed from shutil.copyfileobj and modified for progressbar support
+        """
+        chunks_processed = 1
+        while 1:
+            buf = source_stream.read(chunk_size)
+            if not buf:
+                break
+            destination_stream.write(buf)
+            progressbar.update_to(chunks_processed, chunk_size, int(total_bytes))
+            chunks_processed += 1
+
     def download_release_file(self, destination, file, version=None):
         host = self.config.get('hydra', 'channel_url')
         if not version or version == "latest":
@@ -120,9 +149,29 @@ class UtilsHelper(HydraHelper):
         else:
             version = urllib.parse.quote(version)
             url = f'{host}/archive/{version}/{file}'
-        return self.download_file(destination, url)
+        return self.download_file_stream(destination, url)
 
     def get_binary_version(self, path):
         if not os.path.exists(path):
             raise IOError('Expected shipchain binary:', path)
         return self.binary_exec(path, 'version').stderr.split('\n')[0]
+
+
+class TqdmProgressBar(tqdm):
+    """
+    Provides `update_to(n)` which uses `tqdm.update(delta_n)`.
+    Borrowed from TQDM Docs: https://github.com/tqdm/tqdm#hooks-and-callbacks
+    """
+
+    def update_to(self, b=1, bsize=1, tsize=None):
+        """
+        b  : int, optional
+            Number of blocks transferred so far [default: 1].
+        bsize  : int, optional
+            Size of each block (in tqdm units) [default: 1].
+        tsize  : int, optional
+            Total size (in tqdm units). If [default: None] remains unchanged.
+        """
+        if tsize is not None:
+            self.total = tsize
+        self.update(b * bsize - self.n)  # will also set self.n = b * bsize

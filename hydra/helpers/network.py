@@ -5,7 +5,7 @@ import warnings
 import boto3
 import paramiko
 from troposphere import Base64, Join, Output, Select, GetAtt, GetAZs, Ref, Tags
-from troposphere import ec2, route53, elasticloadbalancingv2 as elb
+from troposphere import ec2, iam, route53, elasticloadbalancingv2 as elb
 
 import yaml
 
@@ -210,19 +210,81 @@ class NetworkHelper(HydraHelper):
     def get_boto(self):
         return boto3.Session(profile_name=self.config.get('provision', 'aws_profile'))
 
-    # pylint: disable=too-many-arguments
-    def add_instance(self, stack_name, template, instance_num, security_group, subnet, version=None):
+    def add_instance_profile(self, stack_name, template, provision_refs):
+        role = template.add_resource(
+            iam.Role(
+                "Role",
+                RoleName=f'{stack_name}-role',
+                Policies=[
+                    iam.Policy(
+                        PolicyName=f'{stack_name}-s3-policy',
+                        PolicyDocument={
+                            "Version": "2012-10-17",
+                            "Statement": [
+                                {
+                                    "Sid": "Troposphere0",
+                                    "Effect": "Allow",
+                                    "Action": [
+                                        "s3:PutAccountPublicAccessBlock",
+                                        "s3:GetAccountPublicAccessBlock",
+                                        "s3:ListAllMyBuckets",
+                                        "s3:HeadBucket"
+                                    ],
+                                    "Resource": "*"
+                                },
+                                {
+                                    "Sid": "Troposphere1",
+                                    "Effect": "Allow",
+                                    "Action": "s3:*",
+                                    "Resource": [
+                                        "arn:aws:s3:::shipchain-network-dist",
+                                        f"arn:aws:s3:::shipchain-network-dist/jumpstart/{stack_name}/*"
+                                    ]
+                                }
+                            ]
+                        }
+                    )
+                ],
+                AssumeRolePolicyDocument={
+                    "Version": "2008-10-17",
+                    "Statement": [
+                        {
+                            "Action": [
+                                "sts:AssumeRole"
+                            ],
+                            "Effect": "Allow",
+                            "Principal":
+                                {
+                                    "Service": [
+                                        "ec2.amazonaws.com"
+                                    ]
+                                }
+                        }
+                    ]
+                }
+            )
+        )
+
+        provision_refs.instance_profile = template.add_resource(
+            iam.InstanceProfile(
+                "InstanceProfile",
+                Roles=[Ref(role)]
+            )
+        )
+
+    def add_instance(self, stack_name, template, provision_refs, instance_num, version=None):
         instance = ec2.Instance(f'node{instance_num}')
+        instance.IamInstanceProfile = Ref(provision_refs.instance_profile)
         instance.ImageId = self.app.config.get('provision', 'aws_ec2_ami_id')
         instance.InstanceType = self.app.config.get('provision', 'aws_ec2_instance_type')
         instance.KeyName = self.app.config.get('provision', 'aws_ec2_key_name')
         instance.NetworkInterfaces = [
             ec2.NetworkInterfaceProperty(
-                GroupSet=[security_group, ],
+                GroupSet=[provision_refs.security_group_ec2, ],
                 AssociatePublicIpAddress='true',
                 DeviceIndex='0',
                 DeleteOnTermination='true',
-                SubnetId=subnet
+                SubnetId=provision_refs.random_subnet
             )
         ]
         version_flag = f' --version={version}' if version else ''
@@ -257,19 +319,16 @@ class NetworkHelper(HydraHelper):
         ])
         return instance
 
-    def add_alb(self, template, vpc, alb_sg, subnet1, subnet2, instances):
+    def add_alb(self, template, provision_refs, instances):
 
         alb = template.add_resource(elb.LoadBalancer(
             'ALB',
             LoadBalancerAttributes=[elb.LoadBalancerAttributes(Key='idle_timeout.timeout_seconds', Value='3600')],
-            Subnets=[
-                subnet1,
-                subnet2
-            ],
+            Subnets=provision_refs.subnets,
             Type='application',
             Scheme='internet-facing',
             IpAddressType='ipv4',
-            SecurityGroups=[alb_sg]
+            SecurityGroups=[provision_refs.security_group_alb]
         ))
 
         default_target_group = template.add_resource(elb.TargetGroup(
@@ -284,7 +343,7 @@ class NetworkHelper(HydraHelper):
                 elb.TargetGroupAttribute(Key='stickiness.type', Value='lb_cookie'),
                 elb.TargetGroupAttribute(Key='stickiness.lb_cookie.duration_seconds', Value='86400'),
             ],
-            VpcId=vpc
+            VpcId=provision_refs.vpc
         ))
 
         template.add_resource(elb.Listener(
@@ -303,20 +362,21 @@ class NetworkHelper(HydraHelper):
                                                'fbb68210-264e-4340-9c5c-a7687f993579')
             ]
         ))
-        return alb
 
-    def add_route53(self, stack_name, template, alb):
+        provision_refs.alb = alb
+
+    def add_route53(self, stack_name, template, provision_refs):
         template.add_resource(route53.RecordSetType(
             "NetworkDNSRecord",
             HostedZoneName="network.shipchain.io.",
             Comment=f"DNS name for {stack_name} network ALB",
             Name=f"{stack_name}.network.shipchain.io.",
             Type="A",
-            AliasTarget=route53.AliasTarget(DNSName=GetAtt(alb, 'DNSName'),
-                                            HostedZoneId=GetAtt(alb, "CanonicalHostedZoneID"))
+            AliasTarget=route53.AliasTarget(DNSName=GetAtt(provision_refs.alb, 'DNSName'),
+                                            HostedZoneId=GetAtt(provision_refs.alb, "CanonicalHostedZoneID"))
         ))
 
-    def sg_subnet_vpc(self, template):
+    def sg_subnet_vpc(self, template, provision_refs):
         ref_stack_id = Ref('AWS::StackId')
 
         if 'aws_vpc_id' in self.app.config['provision']:
@@ -547,10 +607,8 @@ class NetworkHelper(HydraHelper):
                 ))
             use_sg = Ref(instance_security_group)
 
-        return {
-            'vpc': vpc,
-            'ec2_sg': use_sg,
-            'alb_sg': use_alb_sg,
-            'subnet_az_1': use_subnet,
-            'subnet_az_2': use_subnet2
-        }
+        provision_refs.vpc = vpc
+        provision_refs.security_group_ec2 = use_sg
+        provision_refs.security_group_alb = use_alb_sg
+        provision_refs.subnets.append(use_subnet)
+        provision_refs.subnets.append(use_subnet2)

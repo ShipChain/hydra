@@ -152,7 +152,7 @@ def main():
             app.run()
 
         except AssertionError as exc:
-            print(f'AssertionError > {exc.args[0]}')
+            app.log.error(f'AssertionError > {exc.args[0]}')
             app.exit_code = 1
 
             if app.debug is True:
@@ -160,7 +160,7 @@ def main():
                 traceback.print_exc()
 
         except HydraError as exc:
-            print(f'HydraError > {exc.args[0]}')
+            app.log.error(f'HydraError > {exc.args[0]}')
             app.exit_code = 1
 
             if app.debug is True:

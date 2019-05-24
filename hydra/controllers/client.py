@@ -88,6 +88,15 @@ class Client(Controller):  # pylint: disable=too-many-ancestors
                 }
             ),
             (
+                ['-j', '--jumpstart'],
+                {
+                    'help': 'apply jumpstart file',
+                    'action': 'store',
+                    'dest': 'jumpstart',
+                    'default': 'latest'
+                }
+            ),
+            (
                 ['--set-default'],
                 {
                     'help': 'save as default in .hydra_network',
@@ -115,8 +124,7 @@ class Client(Controller):  # pylint: disable=too-many-ancestors
         ]
     )
     def join_network(self):
-        name = self.app.utils.env_or_arg(
-            'name', 'HYDRA_NETWORK', or_path='.hydra_network', required=True)
+        name = self.app.utils.env_or_arg('name', 'HYDRA_NETWORK', or_path='.hydra_network', required=True)
         destination = self.app.pargs.destination or self.app.utils.path(name)
 
         if self.app.pargs.default:
@@ -125,8 +133,7 @@ class Client(Controller):  # pylint: disable=too-many-ancestors
 
         if os.path.exists(destination):
             if not self.app.pargs.destroy:
-                self.app.log.error(
-                    f'Node directory exists, use -D to delete: {destination}')
+                self.app.log.error(f'Node directory exists, use -D to delete: {destination}')
                 return
             rmtree(destination)
 
@@ -142,8 +149,10 @@ class Client(Controller):  # pylint: disable=too-many-ancestors
         else:
             version = self.app.pargs.version
 
-        self.app.client.bootstrap(
-            destination, version=version, destroy=self.app.pargs.destroy)
+        self.app.client.bootstrap(destination, version=version, destroy=self.app.pargs.destroy)
+
+        if self.app.pargs.jumpstart != 'none':
+            self.app.client.jumpstart(name, destination, self.app.pargs.jumpstart)
 
         if self.app.pargs.do_configure:
             self.app.client.configure(name, destination)
@@ -224,6 +233,57 @@ class Client(Controller):  # pylint: disable=too-many-ancestors
             (
                 ['-n', '--name'],
                 {
+                    'help': 'name of network to join',
+                    'action': 'store',
+                    'dest': 'name'
+                }
+            ),
+            (
+                ['-b', '--block'],
+                {
+                    'help': 'apply jumpstart file',
+                    'action': 'store',
+                    'dest': 'jumpstart',
+                    'default': 'latest'
+                }
+            ),
+            (
+                ['-d', '--destination'],
+                {
+                    'help': 'destination directory',
+                    'action': 'store',
+                    'dest': 'destination'
+                }
+            ),
+        ]
+    )
+    def apply_jumpstart(self):
+        name = self.app.utils.env_or_arg('name', 'HYDRA_NETWORK', or_path='.hydra_network', required=True)
+        destination = self.app.pargs.destination or self.app.utils.path(name)
+
+        # Stop the service before applying jumpstart files
+        service_name = f'{name}.service'
+        systemd_service = f'/etc/systemd/system/{service_name}'
+
+        if os.path.exists(systemd_service):
+            self.stop_service()
+        else:
+            self.app.log.info(f'Service not installed.  Attempting to stop executable.')
+            self.app.client.find_and_kill_executable(destination)
+
+        self.app.client.jumpstart(name, destination, self.app.pargs.jumpstart)
+
+        # Restart service now that we're at a higher state
+        if os.path.exists(systemd_service):
+            self.start_service()
+        else:
+            self.app.log.warning(f'Service not installed.  You will need to restart your node manually.')
+
+    @ex(
+        arguments=[
+            (
+                ['-n', '--name'],
+                {
                     'help': 'name of network to leave',
                     'action': 'store',
                     'dest': 'name'
@@ -240,8 +300,7 @@ class Client(Controller):  # pylint: disable=too-many-ancestors
         ]
     )
     def leave_network(self):
-        name = self.app.utils.env_or_arg(
-            'name', 'HYDRA_NETWORK', or_path='.hydra_network', required=True)
+        name = self.app.utils.env_or_arg('name', 'HYDRA_NETWORK', or_path='.hydra_network', required=True)
         destination = self.app.pargs.destination or self.app.utils.path(name)
 
         # Verify network directory exists before we start removing everything
@@ -253,8 +312,7 @@ class Client(Controller):  # pylint: disable=too-many-ancestors
             self.app.client.uninstall_systemd(name)
         except HydraError as exc:
             self.app.log.warning(exc)
-            self.app.log.info(
-                f'Service not installed.  Attempting to stop executable manually.')
+            self.app.log.info(f'Service not installed.  Attempting to stop executable manually.')
             self.app.client.find_and_kill_executable(destination)
 
         # Remove network directory
@@ -291,8 +349,7 @@ class Client(Controller):  # pylint: disable=too-many-ancestors
         ]
     )
     def stop_service(self):
-        name = self.app.utils.env_or_arg(
-            'name', 'HYDRA_NETWORK', or_path='.hydra_network', required=True)
+        name = self.app.utils.env_or_arg('name', 'HYDRA_NETWORK', or_path='.hydra_network', required=True)
 
         command = ['sudo', 'systemctl', 'stop', name]
         self.app.log.info(' '.join(command))
@@ -315,8 +372,7 @@ class Client(Controller):  # pylint: disable=too-many-ancestors
         ]
     )
     def start_service(self):
-        name = self.app.utils.env_or_arg(
-            'name', 'HYDRA_NETWORK', or_path='.hydra_network', required=True)
+        name = self.app.utils.env_or_arg('name', 'HYDRA_NETWORK', or_path='.hydra_network', required=True)
 
         command = ['sudo', 'systemctl', 'start', name]
         self.app.log.info(' '.join(command))
@@ -629,7 +685,11 @@ class Client(Controller):  # pylint: disable=too-many-ancestors
 
         # If user has signed a block in the past 100 blocks, it is a validator
         def get(stub):
-            return json.loads(requests.get(f'http://{host}:{port}'+stub).content)
+            url = f'http://{host}:{port}{stub}'
+            try:
+                return json.loads(requests.get(url).content)
+            except requests.exceptions.ConnectionError:
+                raise HydraError(f'Error accessing {url}.  Is your node running?')
 
         status = get('/status')['result']
         net_info = get('/net_info')['result']

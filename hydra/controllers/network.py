@@ -5,8 +5,11 @@ import time
 import uuid
 from datetime import datetime
 
+import requests
 from cement import Controller, ex, shell
 from troposphere import Template
+
+from hydra.core.exc import HydraError
 
 NAME_ARG = (
     ['--name'],
@@ -16,6 +19,25 @@ NAME_ARG = (
         'dest': 'name'
     }
 )
+
+
+class ProvisionReferences:
+
+    def __init__(self):
+        self.vpc = None
+        self.alb = None
+        self.instance_profile = None
+        self.security_group_ec2 = None
+        self.security_group_alb = None
+        self.subnets = []
+
+    @property
+    def primary_subnet(self):
+        return self.subnets[0]
+
+    @property
+    def random_subnet(self):
+        return random.choice(self.subnets)
 
 
 class Network(Controller):  # pylint: disable=too-many-ancestors
@@ -68,25 +90,27 @@ class Network(Controller):  # pylint: disable=too-many-ancestors
             return
 
         self.app.log.info(f'Starting new network: {name}')
+
         template = Template()
-        cfn = self.app.network.sg_subnet_vpc(template)
+        provision_refs = ProvisionReferences()
+
+        self.app.network.sg_subnet_vpc(template, provision_refs)
+        self.app.network.add_instance_profile(name, template, provision_refs)
 
         instances = []
         for instance_num in range(node_count):
-            instances.append(self.app.network.add_instance(name, template, instance_num, cfn['ec2_sg'],
-                                                           random.choice([cfn['subnet_az_1'], cfn['subnet_az_2']]),
-                                                           version))
+            instances.append(self.app.network.add_instance(name, template, provision_refs, instance_num, version))
 
-        alb = self.app.network.add_alb(template, cfn['vpc'], cfn['alb_sg'], cfn['subnet_az_1'], cfn['subnet_az_2'],
-                                       instances)
-        self.app.network.add_route53(name, template, alb)
+        self.app.network.add_alb(template, provision_refs, instances)
+        self.app.network.add_route53(name, template, provision_refs)
 
         template_json = template.to_json()
 
         cloud_formation = self.app.network.get_boto().resource('cloudformation')
         stack = cloud_formation.create_stack(
             StackName=name,
-            TemplateBody=template_json
+            TemplateBody=template_json,
+            Capabilities=('CAPABILITY_NAMED_IAM',)
         )
 
         self.app.log.info(f'Waiting for cloudformation: {name}')
@@ -134,11 +158,13 @@ class Network(Controller):  # pylint: disable=too-many-ancestors
 
         self.app.log.info('Creation complete, pausing for a minute while the software installs...')
 
+        bootstrapped_a_node = False
         for ip in registry['ips']:
             for attempt in range(1, 11):
                 try:
                     self.app.log.info(f'Bootstrapping node {ip} attempt {attempt}...')
                     registry['node_data'][ip] = self.get_bootstrap_data(ip, name)
+                    bootstrapped_a_node = True
                     break
                 except Exception:  # pylint: disable=broad-except
                     if attempt >= 10:
@@ -146,6 +172,9 @@ class Network(Controller):  # pylint: disable=too-many-ancestors
                         break
                     time.sleep(30)
                     continue
+
+        if not bootstrapped_a_node:
+            raise HydraError(f'Bootstrapping failed for all nodes')
 
         registry['bootstrapped'] = datetime.utcnow().strftime('%c')
         self.app.network.register(name, registry)
@@ -315,3 +344,120 @@ class Network(Controller):  # pylint: disable=too-many-ancestors
             pubkey = networks[name]['node_data'][ip]['pubkey']
             self.app.network.run_command(ip, f'cd {name}; ./shipchain call register_candidateV2 {pubkey} '
                                          f'{fee} {lock_time} --name shipchain-node-{index + 1} -k node_priv.key')
+
+    @ex(
+        help='Update local networks.json with published bootstrap information',
+        description='''
+        If you are running commands against a published network you need to have the original bootstrap information in 
+        your local networks.json file.  This is so Hydra can know about the IPs and addresses for the provisioned nodes.
+        You can use this command to pull the published bootstrap information from the S3 bucket and populate your local
+        networks.json file.  
+        ''',
+        arguments=[
+            (
+                    ['--name'],
+                    {
+                        'help': 'the name of the network to run on',
+                        'action': 'store',
+                        'dest': 'name'
+                    }
+            ),
+        ]
+    )
+    def pull_registry(self):
+        name = self.app.utils.env_or_arg('name', 'HYDRA_NETWORK', or_path='.hydra_network')
+
+        try:
+            url = f'{self.app.config["hydra"]["channel_url"]}/networks/{name}/hydra.json'
+            network_registry = json.loads(requests.get(url).content)
+            self.app.network.register(name, network_registry)
+        except Exception as exc:
+            raise HydraError(f'Unable to pull updated registry information: {exc}')
+
+    @ex(
+        help='generate_jumpstart',
+        arguments=[
+            (
+                    ['--name'],
+                    {
+                        'help': 'the name of the network to run on',
+                        'action': 'store',
+                        'dest': 'name'
+                    }
+            ),
+        ]
+    )
+    def generate_jumpstart(self):
+        networks = self.app.network.read_networks_file()
+        name = self.app.utils.env_or_arg('name', 'HYDRA_NETWORK', or_path='.hydra_network')
+
+        if name not in networks:
+            self.app.log.error(f'You must choose a valid network name: {networks.keys()}')
+            return
+
+        if len(networks[name]['ips']) <= 1:
+            self.app.log.error(f'Jumpstart loom.yaml would contain Oracle specific settings.')
+            raise HydraError(f'Not enough nodes in network')
+
+        ip = networks[name]['ips'][-1]
+
+        # We want to include current block height in tarfile name
+        self.app.log.info(f'Getting client status on {ip}')
+        block_height = json.loads(self.app.network.run_command(ip, 'hydra -o json client status'))["node_block_height"]
+        self.app.log.info(f'Current block height {block_height}')
+
+        # We don't want to package live databases
+        self.app.log.info(f'Stopping node before packaging jumpstart')
+        self.app.network.run_command(ip, f'hydra client stop-service --name {name} 2>&1')
+
+        try:
+            tarfile = f'{datetime.today().strftime("%Y-%m-%d")}_{block_height}_{name}.tar.gz'
+            s3_destination = f's3://{self.app.release.dist_bucket}/jumpstart/{name}/{tarfile}'
+
+            jumpstart_include = [
+                'genesis.json',
+                'app.db',
+                'receipts_db',
+                'chaindata/config/genesis.json',
+                'chaindata/data/blockstore.db',
+                'chaindata/data/evidence.db',
+                'chaindata/data/state.db',
+                'chaindata/data/tx_index.db',
+            ]
+
+            self.app.log.info(f'Building {tarfile}')
+            self.app.network.run_command(ip, f"cd {name}; "
+                                         f"tar -zcf {tarfile} "
+                                         f"{' '.join(jumpstart_include)}")
+
+            # The AMI does not include awscli by default
+            self.app.log.info(f'Ensuring AWS CLI is available')
+            self.app.network.run_command(ip, f"sudo apt-get -y install awscli 2>&1")
+
+            self.app.log.info(f'Uploading {tarfile} to {s3_destination}')
+            self.app.network.run_command(ip, f"cd {name}; aws s3 cp {tarfile} {s3_destination} --acl public-read")
+
+            s3 = self.app.release.get_boto().resource('s3')
+            try:
+                jumps_obj = s3.Object(self.app.release.dist_bucket, f'jumpstart/{name}/jumps.json').get()
+                jumps_json = json.loads(jumps_obj['Body'].read().decode('utf-8'))
+            except s3.meta.client.exceptions.NoSuchKey:
+                jumps_json = {}
+
+            jumps_json[block_height] = tarfile
+            jumps_json['latest'] = tarfile
+
+            s3.Object(self.app.release.dist_bucket, f'jumpstart/{name}/jumps.json').put(
+                ACL='public-read',
+                Body=json.dumps(jumps_json).encode('utf-8'),
+                ContentType='application/json',
+            )
+
+            self.app.log.info(f'Jumpstart generation complete!')
+
+        except Exception as exc:
+            self.app.log.error(f'Jumpstart generation failed {exc}')
+
+        finally:
+            self.app.log.info(f'Restarting node service')
+            self.app.network.run_command(ip, f'hydra client start-service --name {name} 2>&1')

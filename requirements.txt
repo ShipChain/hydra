@@ -12,3 +12,4 @@ toml
 libtmux
 requests
 distro
+tqdm

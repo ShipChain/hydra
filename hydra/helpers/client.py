@@ -5,6 +5,7 @@ import os
 import socket
 import stat
 import subprocess
+import tarfile
 import time
 from collections import OrderedDict
 from datetime import datetime
@@ -16,6 +17,7 @@ import requests
 import toml
 import yaml
 from requests.auth import HTTPBasicAuth
+from tqdm import tqdm
 
 from hydra.core.exc import HydraError
 from hydra.core.version import get_version
@@ -186,6 +188,61 @@ class ClientHelper(HydraHelper):
         open('node_addr.b64', 'w+').write(metadata['b64_address'])
 
         self.app.log.info('Bootstrapped!')
+
+    def jumpstart(self, name, network_directory, block):
+        self.app.log.info(f'Attempting to jumpstart {name} to block: {block}.')
+
+        url = f'{self.app.config["hydra"]["channel_url"]}/jumpstart/{name}/jumps.json'
+
+        # Get the published jumpstart data
+        try:
+            jumps_json = json.loads(requests.get(url).content)
+        except Exception as exc:  # pylint: disable=broad-except
+            self.app.log.debug(f'Jumpstart metadata retrieval failed with: {exc}')
+            self.app.log.warning(f'No jumpstart data found for network {name}.  Continuing without jumpstart')
+            return
+
+        if block not in jumps_json:
+            raise HydraError(f'Network {name} does not have jumpstart for block {block}')
+
+        # Next operations will all occur within the node directory for this network
+        os.chdir(network_directory)
+
+        # Get the jumpstart gzipped tar file
+        url = f'{self.app.config["hydra"]["channel_url"]}/jumpstart/{name}/{jumps_json[block]}'
+        jumpstart_tarfile = jumps_json[block]
+
+        try:
+            self.app.utils.download_file_stream(jumpstart_tarfile, url)
+        except Exception as exc:
+            raise HydraError(f'Unable to download jumpstart file {jumpstart_tarfile}: {exc}')
+
+        # Cleanup existing data that we're overwriting from jumpstart
+        for delete_dir in ['app.db', 'receipts_db', 'chaindata/data']:
+            try:
+                rmtree(os.path.join(network_directory, delete_dir))
+            except FileNotFoundError as exc:
+                self.app.log.debug(f'{exc}')
+            except IOError as exc:
+                raise HydraError(f'Cleanup of existing data failed: {exc}')
+
+        # Extract jumpstart over network directory
+        self.app.log.info(f'Extracting jumpstart contents')
+        try:
+            with tarfile.open(jumpstart_tarfile) as tar:
+                tar_members = tar.getmembers()
+                for member in tqdm(iterable=tar_members, total=(len(tar_members) - 1)):
+                    tar.extract(member=member)
+        except tarfile.TarError as exc:
+            raise HydraError(f'Unable to extract jumpstart file {jumpstart_tarfile}: {exc}')
+
+        # Cleanup jumpstart gzipped tar file
+        try:
+            os.remove(jumpstart_tarfile)
+        except OSError as exc:
+            self.app.log.warning(f'Unable to cleanup jumpstart tar. {exc}')
+
+        self.app.log.info(f'Jumpstarting network complete!')
 
     def _setup_oracle_loom_yaml(self):
         with open('loom.yaml', 'r+') as config_file:
