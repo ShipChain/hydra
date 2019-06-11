@@ -1,5 +1,6 @@
 import json
 import os
+import stat
 from collections import OrderedDict
 from shutil import rmtree
 
@@ -816,3 +817,59 @@ class Client(Controller):  # pylint: disable=too-many-ancestors
 
         self.restart_service()
         self.app.log.info(f'Successfully disabled all metrics reporting.')
+
+    @ex(
+        arguments=[
+            (
+                ['-n', '--name'],
+                {
+                    'help': 'name of network to join',
+                    'action': 'store',
+                    'dest': 'name'
+                }
+            ),
+            (
+                ['-v', '--version'],
+                {
+                    'help': 'version of binary',
+                    'action': 'store',
+                    'dest': 'version'
+                }
+            ),
+        ]
+    )
+    def upgrade_binary(self, version=None):
+        version = self.app.pargs.version
+
+        name = self.app.utils.env_or_arg(
+            'name', 'HYDRA_NETWORK', or_path='.hydra_network', required=True)
+
+        p = Prompt(f'Upgrading ShipChain binary to version {version or "latest"} on {name}. Please confirm (y/n):')
+        if not p.input.lower().startswith('y'):
+            return
+
+        destination = self.app.utils.path(name)
+
+        os.chdir(destination)
+
+        self.app.utils.download_release_file('./shipchain-temp', 'shipchain', version)
+
+        os.chmod('./shipchain-temp', os.stat('./shipchain-temp').st_mode | stat.S_IEXEC)
+
+        service_name = f'{name}.service'
+        systemd_service = f'/etc/systemd/system/{service_name}'
+
+        if os.path.exists(systemd_service):
+            self.stop_service()
+        else:
+            self.app.log.info(f'Service not installed.  Attempting to stop executable.')
+            self.app.client.find_and_kill_executable(destination)
+
+        self.app.utils.binary_exec('sudo', 'mv', 'shipchain-temp', 'shipchain')
+
+        if os.path.exists(systemd_service):
+            self.start_service()
+        else:
+            self.app.log.warning(f'Service not installed.  You will need to restart your node manually.')
+
+        self.app.log.info(f'Binary upgrade complete.')
