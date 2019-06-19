@@ -1,6 +1,7 @@
 .idea
 networks*
 loomchain
+.hydra_network
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

@@ -1,6 +1,6 @@
 cement>=3.0.4
 jinja2
-pyyaml==3.13
+pyyaml>=3.13
 colorlog
 pyfiglet
 colored
