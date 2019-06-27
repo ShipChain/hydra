@@ -153,10 +153,16 @@ class ClientHelper(HydraHelper):
         self.app.log.info('Initializing Loom...')
 
         self.app.utils.binary_exec('./shipchain', 'init')
+
+        # Gotta wait a second because the priv_validator doesn't always show up immediately after the init
+        time.sleep(1)
+
+        self.update_node_helper_files(version)
+
+        self.app.log.info('Bootstrapped!')
+
+    def update_node_helper_files(self, version):
         node_key = self.app.utils.binary_exec('./shipchain', 'nodekey').stdout.strip()
-
-        time.sleep(1)  # Gotta wait a second because the priv_validator doesn't always show up
-
         validator = json.load(open('chaindata/config/priv_validator.json'))
 
         self.app.log.info('Your validator address is:')
@@ -166,10 +172,9 @@ class ClientHelper(HydraHelper):
         self.app.log.info('Your node key is:')
         self.app.log.info(node_key)
 
+        self.app.log.debug('Writing hydra metadata...')
         hex_addr = self.app.utils.binary_exec('./shipchain', 'call', 'pubkey',
                                               validator['pub_key']['value']).stdout.strip()
-
-        self.app.log.debug('Writing hydra metadata...')
         metadata = {
             'bootstrapped': datetime.utcnow().strftime('%c'),
             'address': validator['address'],
@@ -180,14 +185,13 @@ class ClientHelper(HydraHelper):
             'shipchain_version': version,
             'by': f'hydra-bootstrap-{get_version()}'
         }
+
         json.dump(metadata, open('.bootstrap.json', 'w+'), indent=2)
 
         self.app.log.debug('Writing key files...')
         open('node_pub.key', 'w+').write(metadata['pubkey'])
         open('node_priv.key', 'w+').write(validator['priv_key']['value'])
         open('node_addr.b64', 'w+').write(metadata['b64_address'])
-
-        self.app.log.info('Bootstrapped!')
 
     def jumpstart(self, name, network_directory, block):
         self.app.log.info(f'Attempting to jumpstart {name} to block: {block}.')
@@ -276,6 +280,7 @@ class ClientHelper(HydraHelper):
 
     def configure(self, name, destination, **kwargs):
         peers = kwargs['peers'] if 'peers' in kwargs else None
+        version = kwargs['version'] if 'version' in kwargs else None
 
         if not os.path.exists(destination):
             self.app.log.error(f'Configuring client at destination does not exist: {destination}')
@@ -296,6 +301,9 @@ class ClientHelper(HydraHelper):
         self.app.log.info('Peers: ')
         for peer in peers:
             self.app.log.info(f'{peer}')
+
+        # Update node_addr.b64, node_priv.key, and node_pub.key files
+        self.update_node_helper_files(version)
 
         # CHAINDATA/CONFIG/GENESIS.json
         self._copy_genesis(

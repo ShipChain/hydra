@@ -156,7 +156,7 @@ class Client(Controller):  # pylint: disable=too-many-ancestors
             self.app.client.jumpstart(name, destination, self.app.pargs.jumpstart)
 
         if self.app.pargs.do_configure:
-            self.app.client.configure(name, destination)
+            self.app.client.configure(name, destination, version=version)
 
         if self.app.pargs.install:
             self.app.client.install_systemd(
