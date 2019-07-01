@@ -332,17 +332,17 @@ class Network(Controller):  # pylint: disable=too-many-ancestors
         fee = self.app.config['provision']['dpos']['fee']
         for index, ip in enumerate(networks[name]['ips']):
             if index == 0:
-                self.app.network.run_command(ip, f"cd {name}; ./shipchain call set_registration_requirement "
+                self.app.network.run_command(ip, f"cd {name}; ./shipchain dposV2 set_registration_requirement "
                                              f"{registration_requirement} -k node_priv.key")
-                self.app.network.run_command(ip, f"cd {name}; ./shipchain call set_max_yearly_reward "
+                self.app.network.run_command(ip, f"cd {name}; ./shipchain dposV2 set_max_yearly_reward "
                                              f"{max_yearly_rewards} -k node_priv.key")
 
                 for node in networks[name]['node_data']:
                     address = networks[name]['node_data'][node]['hex_address']
-                    self.app.network.run_command(ip, f'cd {name}; ./shipchain call whitelist_candidate {address} '
+                    self.app.network.run_command(ip, f'cd {name}; ./shipchain dposV2 whitelist_candidate {address} '
                                                  f'{registration_requirement} {lock_time} -k node_priv.key')
             pubkey = networks[name]['node_data'][ip]['pubkey']
-            self.app.network.run_command(ip, f'cd {name}; ./shipchain call register_candidateV2 {pubkey} '
+            self.app.network.run_command(ip, f'cd {name}; ./shipchain dposV2 register_candidateV2 {pubkey} '
                                          f'{fee} {lock_time} --name shipchain-node-{index + 1} -k node_priv.key')
 
     @ex(
