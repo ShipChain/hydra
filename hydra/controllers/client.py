@@ -2,7 +2,7 @@ import json
 import os
 import stat
 from collections import OrderedDict
-from shutil import rmtree
+from shutil import rmtree, copyfile
 
 import requests
 import toml
@@ -873,3 +873,109 @@ class Client(Controller):  # pylint: disable=too-many-ancestors
             self.app.log.warning(f'Service not installed.  You will need to restart your node manually.')
 
         self.app.log.info(f'Binary upgrade complete.')
+
+    @ex(
+        arguments=[
+            (
+                ['-n', '--name'],
+                {
+                    'help': 'name of network to backup',
+                    'action': 'store',
+                    'dest': 'name'
+                }
+            ),
+            (
+                ['-d', '--destination'],
+                {
+                    'help': 'path to the destination backup directory',
+                    'default': '~/.hydra',
+                    'action': 'store',
+                    'dest': 'destination'
+                }
+            ),
+            (
+                ['-f'],
+                {
+                    'help': 'overwrite existing backup',
+                    'action': 'store_true',
+                    'dest': 'force'
+                }
+            ),
+        ]
+    )
+    def backup(self):
+        name = self.app.utils.env_or_arg('name', 'HYDRA_NETWORK', or_path='.hydra_network', required=True)
+        destination = os.path.expanduser(self.app.pargs.destination)
+        force = self.app.pargs.force
+
+        network_folder = self.app.utils.path(name)
+        os.chdir(network_folder)
+
+        files_to_backup = [
+            'chaindata/config/node_key.json',
+            'chaindata/config/priv_validator.json',
+        ]
+
+        self.app.log.info(f'Backing up files to {destination}/{name}')
+        for file in files_to_backup:
+            dest_file = f'{destination}/{name}/{file}'
+            os.makedirs(os.path.dirname(dest_file), exist_ok=True)
+
+            if os.path.exists(dest_file) and not force:
+                self.app.log.error(f'{dest_file} already exists, to overwrite rerun command with "-f" ')
+            else:
+                copyfile(file, dest_file)
+                self.app.log.info(f'{dest_file} backed up.')
+
+    @ex(
+        arguments=[
+            (
+                ['-n', '--name'],
+                {
+                    'help': 'name of network to restore to',
+                    'action': 'store',
+                    'dest': 'name'
+                }
+            ),
+            (
+                ['-s', '--source'],
+                {
+                    'help': 'path to the source backup directory',
+                    'default': '~/.hydra',
+                    'action': 'store',
+                    'dest': 'source'
+                }
+            ),
+            (
+                ['-f'],
+                {
+                    'help': 'overwrite existing node keys',
+                    'action': 'store_true',
+                    'dest': 'force'
+                }
+            ),
+        ]
+    )
+    def restore(self):
+        name = self.app.utils.env_or_arg('name', 'HYDRA_NETWORK', or_path='.hydra_network', required=True)
+        source = os.path.expanduser(self.app.pargs.source)
+        force = self.app.pargs.force
+
+        network_folder = self.app.utils.path(name)
+        os.chdir(network_folder)
+
+        files_to_restore = [
+            'chaindata/config/node_key.json',
+            'chaindata/config/priv_validator.json',
+        ]
+
+        self.app.log.info(f'Restoring backup from {source}/{name} to {network_folder}')
+        for dest_file in files_to_restore:
+            file = f'{source}/{name}/{dest_file}'
+            if not os.path.exists(file):
+                self.app.log.error(f'{file} does not exist, cannot restore.')
+            elif os.path.exists(dest_file) and not force:
+                self.app.log.error(f'{dest_file} already exists, to overwrite rerun command with "-f" ')
+            else:
+                copyfile(file, dest_file)
+                self.app.log.info(f'{dest_file} restored.')
