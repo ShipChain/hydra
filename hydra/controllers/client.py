@@ -2,7 +2,7 @@ import json
 import os
 import stat
 from collections import OrderedDict
-from shutil import rmtree
+from shutil import rmtree, copyfile
 
 import requests
 import toml
@@ -263,22 +263,12 @@ class Client(Controller):  # pylint: disable=too-many-ancestors
         destination = self.app.pargs.destination or self.app.utils.path(name)
 
         # Stop the service before applying jumpstart files
-        service_name = f'{name}.service'
-        systemd_service = f'/etc/systemd/system/{service_name}'
-
-        if os.path.exists(systemd_service):
-            self.stop_service()
-        else:
-            self.app.log.info(f'Service not installed.  Attempting to stop executable.')
-            self.app.client.find_and_kill_executable(destination)
+        self.app.client.stop_service(name, destination)
 
         self.app.client.jumpstart(name, destination, self.app.pargs.jumpstart)
 
         # Restart service now that we're at a higher state
-        if os.path.exists(systemd_service):
-            self.start_service()
-        else:
-            self.app.log.warning(f'Service not installed.  You will need to restart your node manually.')
+        self.app.client.start_service(name)
 
     @ex(
         arguments=[
@@ -856,20 +846,129 @@ class Client(Controller):  # pylint: disable=too-many-ancestors
 
         os.chmod('./shipchain-temp', os.stat('./shipchain-temp').st_mode | stat.S_IEXEC)
 
-        service_name = f'{name}.service'
-        systemd_service = f'/etc/systemd/system/{service_name}'
-
-        if os.path.exists(systemd_service):
-            self.stop_service()
-        else:
-            self.app.log.info(f'Service not installed.  Attempting to stop executable.')
-            self.app.client.find_and_kill_executable(destination)
+        self.app.client.stop_service(name, destination)
 
         self.app.utils.binary_exec('sudo', 'mv', 'shipchain-temp', 'shipchain')
 
-        if os.path.exists(systemd_service):
-            self.start_service()
-        else:
-            self.app.log.warning(f'Service not installed.  You will need to restart your node manually.')
+        self.app.client.start_service(name)
 
         self.app.log.info(f'Binary upgrade complete.')
+
+    @ex(
+        arguments=[
+            (
+                ['-n', '--name'],
+                {
+                    'help': 'name of network to backup',
+                    'action': 'store',
+                    'dest': 'name'
+                }
+            ),
+            (
+                ['-d', '--destination'],
+                {
+                    'help': 'path to the destination backup directory',
+                    'default': '~/.hydra',
+                    'action': 'store',
+                    'dest': 'destination'
+                }
+            ),
+            (
+                ['-f'],
+                {
+                    'help': 'overwrite existing backup',
+                    'action': 'store_true',
+                    'dest': 'force'
+                }
+            ),
+        ]
+    )
+    def backup(self):
+        name = self.app.utils.env_or_arg('name', 'HYDRA_NETWORK', or_path='.hydra_network', required=True)
+        destination = os.path.expanduser(self.app.pargs.destination)
+        force = self.app.pargs.force
+
+        network_folder = self.app.utils.path(name)
+        os.chdir(network_folder)
+
+        files_to_backup = [
+            'chaindata/config/node_key.json',
+            'chaindata/config/priv_validator.json',
+        ]
+
+        self.app.log.info(f'Backing up files to {destination}/{name}')
+        for src_file in files_to_backup:
+            dest_file = f'{destination}/{name}/{src_file}'
+            os.makedirs(os.path.dirname(dest_file), exist_ok=True)
+
+            if os.path.exists(dest_file) and not force:
+                self.app.log.error(f'{dest_file} already exists, to overwrite rerun command with "-f" ')
+            else:
+                copyfile(src_file, dest_file)
+                self.app.log.info(f'{dest_file} backed up.')
+
+    @ex(
+        arguments=[
+            (
+                ['-n', '--name'],
+                {
+                    'help': 'name of network to restore to',
+                    'action': 'store',
+                    'dest': 'name'
+                }
+            ),
+            (
+                ['-r', '--restore-from'],
+                {
+                    'help': 'name of network to restore from',
+                    'action': 'store',
+                    'dest': 'from_name'
+                }
+            ),
+            (
+                ['-s', '--source-path'],
+                {
+                    'help': 'path to the source backup directory',
+                    'default': '~/.hydra',
+                    'action': 'store',
+                    'dest': 'source'
+                }
+            ),
+            (
+                ['-f'],
+                {
+                    'help': 'overwrite existing node keys',
+                    'action': 'store_true',
+                    'dest': 'force'
+                }
+            ),
+        ]
+    )
+    def restore(self):
+        name = self.app.utils.env_or_arg('name', 'HYDRA_NETWORK', or_path='.hydra_network', required=True)
+        from_name = self.app.pargs.from_name or name
+        source = os.path.expanduser(self.app.pargs.source)
+        force = self.app.pargs.force
+
+        network_folder = self.app.utils.path(name)
+        os.chdir(network_folder)
+
+        files_to_restore = [
+            'chaindata/config/node_key.json',
+            'chaindata/config/priv_validator.json',
+        ]
+
+        self.app.client.stop_service(name, network_folder)
+
+        self.app.log.info(f'Restoring backup from {source}/{from_name} to {network_folder}')
+        for dest_file in files_to_restore:
+            src_file = f'{source}/{from_name}/{dest_file}'
+            if not os.path.exists(src_file):
+                self.app.log.error(f'{src_file} does not exist, cannot restore.')
+            elif os.path.exists(dest_file) and not force:
+                self.app.log.error(f'{dest_file} already exists, to overwrite rerun command with "-f" ')
+            else:
+                copyfile(src_file, dest_file)
+                self.app.log.info(f'{dest_file} restored.')
+
+        self.app.client.start_service(name)
