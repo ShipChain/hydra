@@ -917,14 +917,14 @@ class Client(Controller):  # pylint: disable=too-many-ancestors
         ]
 
         self.app.log.info(f'Backing up files to {destination}/{name}')
-        for file in files_to_backup:
-            dest_file = f'{destination}/{name}/{file}'
+        for src_file in files_to_backup:
+            dest_file = f'{destination}/{name}/{src_file}'
             os.makedirs(os.path.dirname(dest_file), exist_ok=True)
 
             if os.path.exists(dest_file) and not force:
                 self.app.log.error(f'{dest_file} already exists, to overwrite rerun command with "-f" ')
             else:
-                copyfile(file, dest_file)
+                copyfile(src_file, dest_file)
                 self.app.log.info(f'{dest_file} backed up.')
 
     @ex(
@@ -971,11 +971,11 @@ class Client(Controller):  # pylint: disable=too-many-ancestors
 
         self.app.log.info(f'Restoring backup from {source}/{name} to {network_folder}')
         for dest_file in files_to_restore:
-            file = f'{source}/{name}/{dest_file}'
-            if not os.path.exists(file):
-                self.app.log.error(f'{file} does not exist, cannot restore.')
+            src_file = f'{source}/{name}/{dest_file}'
+            if not os.path.exists(src_file):
+                self.app.log.error(f'{src_file} does not exist, cannot restore.')
             elif os.path.exists(dest_file) and not force:
                 self.app.log.error(f'{dest_file} already exists, to overwrite rerun command with "-f" ')
             else:
-                copyfile(file, dest_file)
+                copyfile(src_file, dest_file)
                 self.app.log.info(f'{dest_file} restored.')
