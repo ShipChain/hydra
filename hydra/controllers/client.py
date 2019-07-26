@@ -938,7 +938,15 @@ class Client(Controller):  # pylint: disable=too-many-ancestors
                 }
             ),
             (
-                ['-s', '--source'],
+                ['-r', '--restore-from'],
+                {
+                    'help': 'name of network to restore from',
+                    'action': 'store',
+                    'dest': 'from_name'
+                }
+            ),
+            (
+                ['-s', '--source-path'],
                 {
                     'help': 'path to the source backup directory',
                     'default': '~/.hydra',
@@ -958,6 +966,7 @@ class Client(Controller):  # pylint: disable=too-many-ancestors
     )
     def restore(self):
         name = self.app.utils.env_or_arg('name', 'HYDRA_NETWORK', or_path='.hydra_network', required=True)
+        from_name = self.app.pargs.from_name or name
         source = os.path.expanduser(self.app.pargs.source)
         force = self.app.pargs.force
 
@@ -969,9 +978,9 @@ class Client(Controller):  # pylint: disable=too-many-ancestors
             'chaindata/config/priv_validator.json',
         ]
 
-        self.app.log.info(f'Restoring backup from {source}/{name} to {network_folder}')
+        self.app.log.info(f'Restoring backup from {source}/{from_name} to {network_folder}')
         for dest_file in files_to_restore:
-            src_file = f'{source}/{name}/{dest_file}'
+            src_file = f'{source}/{from_name}/{dest_file}'
             if not os.path.exists(src_file):
                 self.app.log.error(f'{src_file} does not exist, cannot restore.')
             elif os.path.exists(dest_file) and not force:
