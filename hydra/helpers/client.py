@@ -113,10 +113,6 @@ class ClientHelper(HydraHelper):
         service_name = f'{name}.service'
         systemd_service = f'/etc/systemd/system/{service_name}'
 
-        command = ['sudo', 'systemctl', 'start', name]
-        self.app.log.info(' '.join(command))
-        self.app.utils.binary_exec(*command)
-
         if os.path.exists(systemd_service):
             command = ['sudo', 'systemctl', 'start', name]
             self.app.log.info(' '.join(command))
