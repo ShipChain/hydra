@@ -263,22 +263,12 @@ class Client(Controller):  # pylint: disable=too-many-ancestors
         destination = self.app.pargs.destination or self.app.utils.path(name)
 
         # Stop the service before applying jumpstart files
-        service_name = f'{name}.service'
-        systemd_service = f'/etc/systemd/system/{service_name}'
-
-        if os.path.exists(systemd_service):
-            self.stop_service()
-        else:
-            self.app.log.info(f'Service not installed.  Attempting to stop executable.')
-            self.app.client.find_and_kill_executable(destination)
+        self.app.client.stop_service(name, destination)
 
         self.app.client.jumpstart(name, destination, self.app.pargs.jumpstart)
 
         # Restart service now that we're at a higher state
-        if os.path.exists(systemd_service):
-            self.start_service()
-        else:
-            self.app.log.warning(f'Service not installed.  You will need to restart your node manually.')
+        self.app.client.start_service(name)
 
     @ex(
         arguments=[
@@ -856,21 +846,11 @@ class Client(Controller):  # pylint: disable=too-many-ancestors
 
         os.chmod('./shipchain-temp', os.stat('./shipchain-temp').st_mode | stat.S_IEXEC)
 
-        service_name = f'{name}.service'
-        systemd_service = f'/etc/systemd/system/{service_name}'
-
-        if os.path.exists(systemd_service):
-            self.stop_service()
-        else:
-            self.app.log.info(f'Service not installed.  Attempting to stop executable.')
-            self.app.client.find_and_kill_executable(destination)
+        self.app.client.stop_service(name, destination)
 
         self.app.utils.binary_exec('sudo', 'mv', 'shipchain-temp', 'shipchain')
 
-        if os.path.exists(systemd_service):
-            self.start_service()
-        else:
-            self.app.log.warning(f'Service not installed.  You will need to restart your node manually.')
+        self.app.client.start_service(name)
 
         self.app.log.info(f'Binary upgrade complete.')
 
@@ -978,6 +958,8 @@ class Client(Controller):  # pylint: disable=too-many-ancestors
             'chaindata/config/priv_validator.json',
         ]
 
+        self.app.client.stop_service(name, network_folder)
+
         self.app.log.info(f'Restoring backup from {source}/{from_name} to {network_folder}')
         for dest_file in files_to_restore:
             src_file = f'{source}/{from_name}/{dest_file}'
@@ -988,3 +970,5 @@ class Client(Controller):  # pylint: disable=too-many-ancestors
             else:
                 copyfile(src_file, dest_file)
                 self.app.log.info(f'{dest_file} restored.')
+
+        self.app.client.start_service(name)

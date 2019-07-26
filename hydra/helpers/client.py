@@ -91,6 +91,39 @@ class ClientHelper(HydraHelper):
         else:
             self.app.log.info(f'No matching executable running.  Continuing.')
 
+    def stop_service(self, name, destination):
+        service_name = f'{name}.service'
+        systemd_service = f'/etc/systemd/system/{service_name}'
+
+        if os.path.exists(systemd_service):
+            command = ['sudo', 'systemctl', 'stop', name]
+            self.app.log.info(' '.join(command))
+            self.app.utils.binary_exec(*command)
+
+            time.sleep(1)
+
+            command = ['sudo', 'systemctl', 'kill', name]
+            self.app.log.info(' '.join(command))
+            self.app.utils.binary_exec(*command)
+        else:
+            self.app.log.info(f'Service not installed.  Attempting to stop executable.')
+            self.app.client.find_and_kill_executable(destination)
+
+    def start_service(self, name):
+        service_name = f'{name}.service'
+        systemd_service = f'/etc/systemd/system/{service_name}'
+
+        command = ['sudo', 'systemctl', 'start', name]
+        self.app.log.info(' '.join(command))
+        self.app.utils.binary_exec(*command)
+
+        if os.path.exists(systemd_service):
+            command = ['sudo', 'systemctl', 'start', name]
+            self.app.log.info(' '.join(command))
+            self.app.utils.binary_exec(*command)
+        else:
+            self.app.log.warning(f'Service not installed.  You will need to restart your node manually.')
+
     def get_pid(self, executable_path):
         self.app.log.info(f'Scanning for running `shipchain` executables')
 
