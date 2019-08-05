@@ -153,8 +153,12 @@ class ClientHelper(HydraHelper):
         os.chdir(destination)
 
         self.app.utils.download_release_file('./shipchain', 'shipchain', version)
+        self.app.utils.download_release_file('./tgoracle', 'tgoracle', version)
+        self.app.utils.download_release_file('./loomcoin_tgoracle', 'loomcoin_tgoracle', version)
 
         os.chmod('./shipchain', os.stat('./shipchain').st_mode | stat.S_IEXEC)
+        os.chmod('./tgoracle', os.stat('./tgoracle').st_mode | stat.S_IEXEC)
+        os.chmod('./loomcoin_tgoracle', os.stat('./loomcoin_tgoracle').st_mode | stat.S_IEXEC)
 
         got_version = self.app.utils.binary_exec('./shipchain', 'version').stderr.strip()
         self.app.log.debug(f'Copied ShipChain binary version {got_version}')
@@ -166,12 +170,6 @@ class ClientHelper(HydraHelper):
             'DPOSVersion': 2,
             'ReceiptsVersion': 2,
             'EVMAccountsEnabled': True,
-            'TransferGateway': {
-                'ContractEnabled': True
-            },
-            'LoomCoinTransferGateway': {
-                'ContractEnabled': True
-            },
             'ChainConfig': {
                 'ContractEnabled': True
             },
@@ -282,6 +280,7 @@ class ClientHelper(HydraHelper):
             cfg = yaml.load(config_file)
 
         for gateway in ('TransferGateway', 'LoomCoinTransferGateway'):
+            cfg[gateway]['ContractEnabled'] = True
             cfg[gateway]['OracleEnabled'] = True
             cfg[gateway]['EthereumURI'] = self.app.config['provision']['gateway']['ethereum_uri']
 

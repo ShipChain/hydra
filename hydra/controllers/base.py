@@ -104,10 +104,15 @@ class Base(Controller):  # pylint: disable=too-many-ancestors
         if os.path.isfile(build_tgoracle_path):
             copy(build_tgoracle_path, f"{self.app.utils.path(self.app.config.get('release', 'distdir'))}/tgoracle")
 
+        build_tgoracle_path = f'{base_build_path}/loomcoin_tgoracle'
+        if os.path.isfile(build_tgoracle_path):
+            copy(build_tgoracle_path,
+                 f"{self.app.utils.path(self.app.config.get('release', 'distdir'))}/loomcoin_tgoracle")
+
         manifest = {
             'version': build,
             'released': datetime.utcnow().strftime('%c'),
-            'files': ['./shipchain', './tgoracle', './manifest.json']
+            'files': ['./shipchain', './tgoracle', './loomcoin_tgoracle', './manifest.json']
         }
 
         self.app.log.debug('writing manifest.json')
