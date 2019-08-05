@@ -337,18 +337,22 @@ class Client(Controller):  # pylint: disable=too-many-ancestors
                     'dest': 'name'
                 }
             ),
+            (
+                ['-s', '--service'],
+                {
+                    'help': 'binary/name of service',
+                    'action': 'store',
+                    'default': 'shipchain',
+                    'choices': ['shipchain', 'tgoracle', 'loomcoin_tgoracle'],
+                    'dest': 'binary'
+                }
+            ),
         ]
     )
     def stop_service(self):
         name = self.app.utils.env_or_arg('name', 'HYDRA_NETWORK', or_path='.hydra_network', required=True)
-
-        command = ['sudo', 'systemctl', 'stop', name]
-        self.app.log.info(' '.join(command))
-        self.app.utils.binary_exec(*command)
-
-        command = ['sudo', 'systemctl', 'kill', name]
-        self.app.log.info(' '.join(command))
-        self.app.utils.binary_exec(*command)
+        binary = self.app.pargs.binary
+        self.app.client.stop_service(name, self.app.utils.path(name), binary)
 
     @ex(
         arguments=[
@@ -360,14 +364,22 @@ class Client(Controller):  # pylint: disable=too-many-ancestors
                     'dest': 'name'
                 }
             ),
+            (
+                ['-s', '--service'],
+                {
+                    'help': 'binary/name of service',
+                    'action': 'store',
+                    'default': 'shipchain',
+                    'choices': ['shipchain', 'tgoracle', 'loomcoin_tgoracle'],
+                    'dest': 'binary'
+                }
+            ),
         ]
     )
     def start_service(self):
         name = self.app.utils.env_or_arg('name', 'HYDRA_NETWORK', or_path='.hydra_network', required=True)
-
-        command = ['sudo', 'systemctl', 'start', name]
-        self.app.log.info(' '.join(command))
-        self.app.utils.binary_exec(*command)
+        binary = self.app.pargs.binary
+        self.app.client.start_service(name, binary)
 
     @ex(
         arguments=[
@@ -379,23 +391,24 @@ class Client(Controller):  # pylint: disable=too-many-ancestors
                     'dest': 'name'
                 }
             ),
+            (
+                ['-s', '--service'],
+                {
+                    'help': 'binary/name of service',
+                    'action': 'store',
+                    'default': 'shipchain',
+                    'choices': ['shipchain', 'tgoracle', 'loomcoin_tgoracle'],
+                    'dest': 'binary'
+                }
+            ),
         ]
     )
     def restart_service(self):
         name = self.app.utils.env_or_arg(
             'name', 'HYDRA_NETWORK', or_path='.hydra_network', required=True)
-
-        command = ['sudo', 'systemctl', 'stop', name]
-        self.app.log.info(' '.join(command))
-        self.app.utils.binary_exec(*command)
-
-        command = ['sudo', 'systemctl', 'kill', name]
-        self.app.log.info(' '.join(command))
-        self.app.utils.binary_exec(*command)
-
-        command = ['sudo', 'systemctl', 'start', name]
-        self.app.log.info(' '.join(command))
-        self.app.utils.binary_exec(*command)
+        binary = self.app.pargs.binary
+        self.app.client.stop_service(name, self.app.utils.path(name), binary)
+        self.app.client.start_service(name, binary)
 
     @ex(
         arguments=[
