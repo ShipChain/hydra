@@ -243,7 +243,7 @@ class Client(Controller):  # pylint: disable=too-many-ancestors
                 user=self.app.utils.binary_exec('whoami').stdout.strip(), binary='tgoracle')
             self.app.client.install_systemd(
                 name, destination,
-                user=self.app.utils.binary_exec('whoami').stdout.strip(), binary='loomchain_tgoracle')
+                user=self.app.utils.binary_exec('whoami').stdout.strip(), binary='loomcoin_tgoracle')
 
     @ex(
         arguments=[
