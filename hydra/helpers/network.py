@@ -97,8 +97,8 @@ class NetworkHelper(HydraHelper):
         network = networks[network_name]
         folder = f'networks/{network_name}'
 
-        def open_first_file(file_name):
-            ip = network['ips'][0]
+        def open_nth_file(file_name, n=0):
+            ip = network['ips'][n]
             output = self.run_command(ip, f'cat {network_name}/{file_name}')
             return output
 
@@ -107,7 +107,7 @@ class NetworkHelper(HydraHelper):
 
         os.makedirs(f'networks/{network_name}/chaindata/config/', exist_ok=True)
 
-        cd_genesis = json.loads(open_first_file('chaindata/config/genesis.json'))
+        cd_genesis = json.loads(open_nth_file('chaindata/config/genesis.json'))
         cd_genesis['genesis_time'] = '1970-01-01T00:00:00Z'
         cd_genesis['validators'] = [
             {
@@ -124,8 +124,8 @@ class NetworkHelper(HydraHelper):
         json.dump(cd_genesis, open(f'{folder}/chaindata/config/genesis.json', 'w+'), indent=4)
 
         # GENESIS.json
-        genesis = json.loads(open_first_file('genesis.json'))
-        oracle_addr = open_first_file('node_addr.b64')
+        genesis = json.loads(open_nth_file('genesis.json'))
+        oracle_addrs = [open_nth_file('node_addr.b64', n) for n in range(0, len(network['ips']))]
 
         for contract_num, contract in enumerate(genesis['contracts']):
             if contract['name'] == 'dposV2':
@@ -139,7 +139,7 @@ class NetworkHelper(HydraHelper):
                 ]
                 genesis['contracts'][contract_num]['init']['params']['oracleAddress'] = {
                     "chain_id": "default",
-                    "local": oracle_addr,
+                    "local": oracle_addrs[0],
                 }
             elif contract['name'] == 'chainconfig':
                 genesis['contracts'][contract_num]['init']['features'] = [
@@ -160,13 +160,13 @@ class NetworkHelper(HydraHelper):
                 genesis['contracts'][contract_num]['init'] = {
                     "owner": {
                         "chain_id": "default",
-                        "local": oracle_addr,
+                        "local": oracle_addrs[0],
                     },
                     "oracles": [
                         {
                             "chain_id": "default",
                             "local": oracle_addr,
-                        }
+                        } for oracle_addr in oracle_addrs
                     ],
                     "first_mainnet_block_num": str(self.app.config['provision']['gateway']['first_mainnet_block_num'])
                 }

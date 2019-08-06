@@ -297,15 +297,6 @@ class Network(Controller):  # pylint: disable=too-many-ancestors
                         'dest': 'name'
                     }
             ),
-            (
-                    ['--oracle-priv-key'],
-                    {
-                        'help': 'the path of eth private key of the oracle mainnet account',
-                        'action': 'store',
-                        'dest': 'oracle_eth_priv',
-                        'required': True
-                    }
-            ),
         ]
     )
     def configure(self):
@@ -318,10 +309,9 @@ class Network(Controller):  # pylint: disable=too-many-ancestors
             return
 
         for index, ip in enumerate(networks[name]['ips']):
-            if index == 0:
-                self.app.network.scp(ip, self.app.pargs.oracle_eth_priv, f'{name}/oracle_eth_priv.key')
+            self.app.network.scp(ip, f'oracle_eth_priv_{index}.key', f'{name}/oracle_eth_priv.key')
             self.app.network.run_command(ip, f'hydra client configure '
-                                             f'--name={name}{" --as-oracle" if index == 0 else ""} 2>&1')
+                                             f'--name={name} --as-oracle 2>&1')
 
         # Wait for network to activate chainconfig
         time.sleep(10)
