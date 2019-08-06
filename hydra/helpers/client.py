@@ -170,6 +170,15 @@ class ClientHelper(HydraHelper):
             'DPOSVersion': 2,
             'ReceiptsVersion': 2,
             'EVMAccountsEnabled': True,
+            'TransferGateway': {
+                'ContractEnabled': True
+            },
+            'LoomCoinTransferGateway': {
+                'ContractEnabled': True
+            },
+            'BinanceTransferGateway': {
+                'ContractEnabled': False
+            },
             'ChainConfig': {
                 'ContractEnabled': True
             },
