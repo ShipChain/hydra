@@ -123,12 +123,12 @@ class Client(Controller):  # pylint: disable=too-many-ancestors
                 }
             ),
             (
-                    ['--as-oracle'],
-                    {
-                        'help': 'join the network as the transfer-gateway oracle',
-                        'action': 'store_true',
-                        'dest': 'oracle'
-                    }
+                ['--as-oracle'],
+                {
+                    'help': 'join the network as the transfer-gateway oracle',
+                    'action': 'store_true',
+                    'dest': 'oracle'
+                }
             ),
         ]
     )
@@ -169,14 +169,6 @@ class Client(Controller):  # pylint: disable=too-many-ancestors
         if self.app.pargs.install:
             self.app.client.install_systemd(
                 name, destination, user=self.app.utils.binary_exec('whoami').stdout.strip())
-
-            if self.app.pargs.oracle:
-                self.app.client.install_systemd(
-                    name, destination,
-                    user=self.app.utils.binary_exec('whoami').stdout.strip(), binary='tgoracle')
-                self.app.client.install_systemd(
-                    name, destination,
-                    user=self.app.utils.binary_exec('whoami').stdout.strip(), binary='loomchain_tgoracle')
 
     @ex(
         arguments=[
@@ -245,13 +237,13 @@ class Client(Controller):  # pylint: disable=too-many-ancestors
             self.app.client.install_systemd(
                 name, destination, user=self.app.utils.binary_exec('whoami').stdout.strip())
 
-            if self.app.pargs.oracle:
-                self.app.client.install_systemd(
-                    name, destination,
-                    user=self.app.utils.binary_exec('whoami').stdout.strip(), binary='tgoracle')
-                self.app.client.install_systemd(
-                    name, destination,
-                    user=self.app.utils.binary_exec('whoami').stdout.strip(), binary='loomchain_tgoracle')
+        if self.app.pargs.oracle:
+            self.app.client.install_systemd(
+                name, destination,
+                user=self.app.utils.binary_exec('whoami').stdout.strip(), binary='tgoracle')
+            self.app.client.install_systemd(
+                name, destination,
+                user=self.app.utils.binary_exec('whoami').stdout.strip(), binary='loomchain_tgoracle')
 
     @ex(
         arguments=[
