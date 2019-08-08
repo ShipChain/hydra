@@ -128,7 +128,7 @@ class NetworkHelper(HydraHelper):
         oracle_addrs = [open_nth_file('node_addr.b64', n) for n in range(0, len(network['ips']))]
 
         for contract_num, contract in enumerate(genesis['contracts']):
-            if contract['name'] == 'dposV2':
+            if contract['name'] == 'dposV3':
                 genesis['contracts'][contract_num]['init']['params']['validatorCount'] = str(
                     self.app.config['provision']['dpos']['validator_count'])
                 genesis['contracts'][contract_num]['init']['params']['electionCycleLength'] = str(
@@ -177,7 +177,7 @@ class NetworkHelper(HydraHelper):
         loom_config = {
             'ChainID': 'default',
             'RegistryVersion': 2,
-            'DPOSVersion': 2,
+            'DPOSVersion': 3,
             'ReceiptsVersion': 2,
             'LoomLogLevel': self.app.config['loom']['loom_log_level'],
             'ContractLogLevel': self.app.config['loom']['contract_log_level'],

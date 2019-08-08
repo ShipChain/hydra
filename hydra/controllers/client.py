@@ -595,7 +595,7 @@ class Client(Controller):  # pylint: disable=too-many-ancestors
         json.dump(info, open('.validator-info.json', 'w'), indent=2)
 
         # Update DPoS info
-        command = ['./shipchain', 'call', '-k', 'node_priv.key', 'update_candidate_info',
+        command = ['./shipchain', 'dpos3', '-k', 'node_priv.key', 'update-candidate-info',
                    info['node_name'], info['description'], info['website']]
 
         self.app.log.info(' '.join(command))
