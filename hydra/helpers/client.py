@@ -289,30 +289,8 @@ class ClientHelper(HydraHelper):
             cfg = yaml.load(config_file)
 
         for gateway in ('TransferGateway', 'LoomCoinTransferGateway'):
-            cfg[gateway]['ContractEnabled'] = True
             cfg[gateway]['OracleEnabled'] = True
-            cfg[gateway]['EthereumURI'] = self.app.config['provision']['gateway']['ethereum_uri']
 
-            cfg[gateway]['MainnetPrivateKeyPath'] = 'oracle_eth_priv.key'
-            cfg[gateway]['MainnetPollInterval'] = self.app.config['provision']['gateway']['mainnet_poll_interval']
-
-            cfg[gateway]['DAppChainPrivateKeyPath'] = 'node_priv.key'
-            cfg[gateway]['DAppChainReadURI'] = 'http://localhost:46658/query'
-            cfg[gateway]['DAppChainWriteURI'] = 'http://localhost:46658/rpc'
-            cfg[gateway]['DAppChainEventsURI'] = 'ws://localhost:46658/queryws'
-            cfg[gateway]['DAppChainPollInterval'] = self.app.config['provision']['gateway'][
-                'dappchain_poll_interval']
-
-            cfg[gateway]['OracleLogLevel'] = self.app.config['provision']['gateway']['oracle_log_level']
-            cfg[gateway]['OracleLogDestination'] = f'file://{gateway}-oracle.log'
-            cfg[gateway]['OracleStartupDelay'] = self.app.config['provision']['gateway']['oracle_startup_delay']
-            cfg[gateway]['OracleReconnectInterval'] = self.app.config['provision']['gateway'][
-                'oracle_reconnect_interval']
-
-        cfg['TransferGateway']['MainnetContractHexAddress'] = self.app.config['provision']['gateway'][
-            'mainnet_tg_contract_hex_address']
-        cfg['LoomCoinTransferGateway']['MainnetContractHexAddress'] = self.app.config['provision']['gateway'][
-            'mainnet_lctg_contract_hex_address']
         open('loom.yaml', 'w+').write(yaml.dump(cfg, indent=4))
 
     def configure(self, name, destination, **kwargs):

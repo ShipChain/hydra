@@ -204,6 +204,33 @@ class NetworkHelper(HydraHelper):
                 }
             }
         }
+
+        for gateway in ('TransferGateway', 'LoomCoinTransferGateway'):
+            loom_config[gateway]['ContractEnabled'] = True
+            loom_config[gateway]['OracleEnabled'] = False
+            loom_config[gateway]['EthereumURI'] = self.app.config['provision']['gateway']['ethereum_uri']
+
+            loom_config[gateway]['MainnetPrivateKeyPath'] = 'oracle_eth_priv.key'
+            loom_config[gateway]['MainnetPollInterval'] = self.app.config['provision']['gateway']['mainnet_poll_interval']
+
+            loom_config[gateway]['DAppChainPrivateKeyPath'] = 'node_priv.key'
+            loom_config[gateway]['DAppChainReadURI'] = 'http://localhost:46658/query'
+            loom_config[gateway]['DAppChainWriteURI'] = 'http://localhost:46658/rpc'
+            loom_config[gateway]['DAppChainEventsURI'] = 'ws://localhost:46658/queryws'
+            loom_config[gateway]['DAppChainPollInterval'] = self.app.config['provision']['gateway'][
+                'dappchain_poll_interval']
+
+            loom_config[gateway]['OracleLogLevel'] = self.app.config['provision']['gateway']['oracle_log_level']
+            loom_config[gateway]['OracleLogDestination'] = f'file://{gateway}-oracle.log'
+            loom_config[gateway]['OracleStartupDelay'] = self.app.config['provision']['gateway']['oracle_startup_delay']
+            loom_config[gateway]['OracleReconnectInterval'] = self.app.config['provision']['gateway'][
+                'oracle_reconnect_interval']
+
+        loom_config['TransferGateway']['MainnetContractHexAddress'] = self.app.config['provision']['gateway'][
+            'mainnet_tg_contract_hex_address']
+        loom_config['LoomCoinTransferGateway']['MainnetContractHexAddress'] = self.app.config['provision']['gateway'][
+            'mainnet_lctg_contract_hex_address']
+
         open(f'{folder}/loom.yaml', 'w+').write(
             yaml.dump(loom_config, indent=4, default_flow_style=False))
 
