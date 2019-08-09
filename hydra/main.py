@@ -51,7 +51,8 @@ CONFIG['provision']['dpos'] = {
     'registration_requirement': 250000,
     'max_yearly_rewards': 30000000,
     'lock_time': 0,
-    'fee': 2500
+    'fee': 2500,
+    'referral_fee': 300
 }
 CONFIG['loom']['loom_log_name'] = 'loom.log'
 CONFIG['loom']['loom_log_level'] = 'debug'

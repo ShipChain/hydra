@@ -320,6 +320,7 @@ class Network(Controller):  # pylint: disable=too-many-ancestors
         max_yearly_rewards = self.app.config['provision']['dpos']['max_yearly_rewards']
         lock_time = self.app.config['provision']['dpos']['lock_time']
         fee = self.app.config['provision']['dpos']['fee']
+        referral_fee = self.app.config['provision']['dpos']['referral_fee']
         for index, ip in enumerate(networks[name]['ips']):
             if index == 0:
                 self.app.network.run_command(ip, f"cd {name}; ./shipchain dpos3 set-registration-requirement "
@@ -329,11 +330,13 @@ class Network(Controller):  # pylint: disable=too-many-ancestors
 
                 for node in networks[name]['node_data']:
                     address = networks[name]['node_data'][node]['hex_address']
-                    self.app.network.run_command(ip, f'cd {name}; ./shipchain dpos3 whitelist-candidate {address} '
-                                                 f'{registration_requirement} {lock_time} -k node_priv.key')
-            pubkey = networks[name]['node_data'][ip]['pubkey']
-            self.app.network.run_command(ip, f'cd {name}; ./shipchain dpos3 register-candidate {pubkey} '
-                                         f'{fee} {lock_time} --name shipchain-node-{index + 1} -k node_priv.key')
+                    self.app.network.run_command(ip, f'cd {name}; ./shipchain dpos3 change-whitelist-info {address} '
+                                                     f'{registration_requirement} {lock_time} -k node_priv.key')
+
+            self.app.network.run_command(ip, f'cd {name}; ./shipchain dpos3 update-candidate-info '
+                                             f'shipchain-node-{index + 1} "Official ShipChain bootstrap node" '
+                                             f'"www.shipchain.io" {referral_fee} -k node_priv.key')
+            self.app.network.run_command(ip, f'cd {name}; ./shipchain dpos3 change-fee {fee} -k node_priv.key')
 
     @ex(
         help='Update local networks.json with published bootstrap information',

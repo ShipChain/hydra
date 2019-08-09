@@ -595,8 +595,9 @@ class Client(Controller):  # pylint: disable=too-many-ancestors
         json.dump(info, open('.validator-info.json', 'w'), indent=2)
 
         # Update DPoS info
+        referral_fee = self.app.config['provision']['dpos']['referral_fee']
         command = ['./shipchain', 'dpos3', '-k', 'node_priv.key', 'update-candidate-info',
-                   info['node_name'], info['description'], info['website']]
+                   info['node_name'], info['description'], info['website'], referral_fee]
 
         self.app.log.info(' '.join(command))
         cmd_output = self.app.utils.binary_exec(*command).stdout.strip()
