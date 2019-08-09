@@ -167,7 +167,7 @@ class ClientHelper(HydraHelper):
         loom_config = {
             'ChainID': 'default',
             'RegistryVersion': 2,
-            'DPOSVersion': 2,
+            'DPOSVersion': 3,
             'ReceiptsVersion': 2,
             'EVMAccountsEnabled': True,
             'TransferGateway': {
