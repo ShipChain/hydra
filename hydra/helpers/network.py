@@ -525,6 +525,19 @@ class NetworkHelper(HydraHelper):
                     CidrBlock='0.0.0.0/0',
                 ))
 
+            # Only used when Blockscout is deployed
+            template.add_resource(
+                ec2.NetworkAclEntry(
+                    'InboundHttpsNetworkAclEntry',
+                    NetworkAclId=Ref(network_acl),
+                    RuleNumber='103',
+                    Protocol='6',
+                    PortRange=ec2.PortRange(From='443', To='443'),
+                    Egress='false',
+                    RuleAction='allow',
+                    CidrBlock='0.0.0.0/0',
+                ))
+
             template.add_resource(
                 ec2.NetworkAclEntry(
                     'OutBoundHTTPNetworkAclEntry',
