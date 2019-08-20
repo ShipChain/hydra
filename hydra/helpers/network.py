@@ -172,12 +172,16 @@ class NetworkHelper(HydraHelper):
                     'userdeploy-wl:v1.1',
                     'userdeploy-wl:v1.2'
                 ]
-                genesis['contracts'][contract_num]['init']['features'] = [
+                contract['init']['features'] = [
                     {
                         "name": feature,
                         "status": "WAITING"
                     } for feature in features
                 ]
+                contract['init']['params'] = {
+                    "voteThreshold": "67",
+                    "numBlockConfirmations": "1"
+                }
             elif 'gateway' in contract['name']:
                 genesis['contracts'][contract_num]['init'] = {
                     "owner": {
@@ -224,6 +228,9 @@ class NetworkHelper(HydraHelper):
                         'AccountType': 1
                     }
                 }
+            },
+            'FnConsensus': {
+                'Enabled': True
             }
         }
 
