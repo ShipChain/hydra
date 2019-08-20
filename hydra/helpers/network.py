@@ -142,19 +142,41 @@ class NetworkHelper(HydraHelper):
                     "local": oracle_addrs[0],
                 }
             elif contract['name'] == 'chainconfig':
+                features = [
+                    'addrmapper:v1.1',
+                    'auth:sigtx:default',
+                    'auth:sigtx:eth',
+                    'chaincfg:v1.1',
+                    'chaincfg:v1.2',
+                    'chaincfg:v1.3',
+                    'coin:v1.1',
+                    'coin:v1.2',
+                    'db:auxevm',
+                    'db:evm',
+                    'deploytx:v1.1',
+                    'dpos:v3',
+                    'dpos:v3.1',
+                    'dpos:v3.2',
+                    'dpos:v3.3',
+                    'dpos:v3.5',
+                    'evm:constantinople',
+                    'mw:mulcsigtx:v1.1',
+                    'mw:userdeploy-wl',
+                    'receipts:v2',
+                    'tg:binance-cm',
+                    'tg:check-txhash',
+                    'tg:check-zamt',
+                    'tg:fix-erc721',
+                    'tx:check-value',
+                    'tx:migration',
+                    'userdeploy-wl:v1.1',
+                    'userdeploy-wl:v1.2'
+                ]
                 genesis['contracts'][contract_num]['init']['features'] = [
                     {
-                        "name": "auth:sigtx:eth",
+                        "name": feature,
                         "status": "WAITING"
-                    },
-                    {
-                        "name": "auth:sigtx:default",
-                        "status": "WAITING"
-                    },
-                    {
-                        "name": "tg:check-txhash",
-                        "status": "WAITING"
-                    }
+                    } for feature in features
                 ]
             elif 'gateway' in contract['name']:
                 genesis['contracts'][contract_num]['init'] = {
@@ -225,6 +247,13 @@ class NetworkHelper(HydraHelper):
             loom_config[gateway]['OracleStartupDelay'] = self.app.config['provision']['gateway']['oracle_startup_delay']
             loom_config[gateway]['OracleReconnectInterval'] = self.app.config['provision']['gateway'][
                 'oracle_reconnect_interval']
+
+            loom_config[gateway]['BatchSignFnConfig'] = {
+                'Enabled': True,
+                'MainnetPrivateKeyPath': 'oracle_eth_priv.key',
+                'LogLevel': self.app.config['provision']['gateway']['oracle_log_level'],
+                'LogDestination': f'file://{gateway}-oracle.log'
+            }
 
         loom_config['TransferGateway']['MainnetContractHexAddress'] = self.app.config['provision']['gateway'][
             'mainnet_tg_contract_hex_address']
