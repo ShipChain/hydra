@@ -338,6 +338,9 @@ class Network(Controller):  # pylint: disable=too-many-ancestors
                                              f'"www.shipchain.io" {referral_fee} -k node_priv.key')
             self.app.network.run_command(ip, f'cd {name}; ./shipchain dpos3 change-fee {fee} -k node_priv.key')
 
+            self.app.network.run_command(ip, f"cd {name}; ./shipchain addressmapper add-identity-mapping "
+                                             f"`jq -r '.hex_address' .bootstrap.json` oracle_eth_priv.key -k node_priv.key")
+
     @ex(
         help='Update local networks.json with published bootstrap information',
         description='''

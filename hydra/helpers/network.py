@@ -255,6 +255,7 @@ class NetworkHelper(HydraHelper):
             loom_config[gateway]['OracleReconnectInterval'] = self.app.config['provision']['gateway'][
                 'oracle_reconnect_interval']
 
+            loom_config[gateway]['WithdrawalSig'] = 2
             loom_config[gateway]['BatchSignFnConfig'] = {
                 'Enabled': True,
                 'MainnetPrivateKeyPath': 'oracle_eth_priv.key',
