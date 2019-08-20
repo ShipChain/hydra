@@ -314,6 +314,7 @@ class NetworkHelper(HydraHelper):
                 SubnetId=provision_refs.random_subnet
             )
         ]
+        instance.Tags = Tags(Name=f'node{instance_num}')
         version_flag = f' --version={version}' if version else ''
         join_network_arguments = f'--name={stack_name}{version_flag} --set-default --install --no-configure'
 
