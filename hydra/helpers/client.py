@@ -284,15 +284,6 @@ class ClientHelper(HydraHelper):
 
         self.app.log.info(f'Jumpstarting network complete!')
 
-    def _setup_oracle_loom_yaml(self):
-        with open('loom.yaml', 'r+') as config_file:
-            cfg = yaml.load(config_file)
-
-        for gateway in ('TransferGateway', 'LoomCoinTransferGateway'):
-            cfg[gateway]['OracleEnabled'] = True
-
-        open('loom.yaml', 'w+').write(yaml.dump(cfg, indent=4))
-
     def configure(self, name, destination, **kwargs):
         peers = kwargs['peers'] if 'peers' in kwargs else None
         version = kwargs['version'] if 'version' in kwargs else None
@@ -331,8 +322,6 @@ class ClientHelper(HydraHelper):
             f'{self.app.config["hydra"]["channel_url"]}/networks/{name}/loom.yaml',
             'loom.yaml'
         )
-        if kwargs['oracle'] if 'oracle' in kwargs else False:
-            self._setup_oracle_loom_yaml()
 
         # GENESIS.json
         self._copy_genesis(

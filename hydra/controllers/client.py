@@ -231,7 +231,7 @@ class Client(Controller):  # pylint: disable=too-many-ancestors
             self.app.log.error(f'Directory doesnt exist: {destination}')
 
         self.app.client.configure(
-            name, destination, version=self.app.pargs.version or 'latest', oracle=self.app.pargs.oracle)
+            name, destination, version=self.app.pargs.version or 'latest')
 
         if self.app.pargs.install:
             self.app.client.install_systemd(
