@@ -213,7 +213,7 @@ class Network(Controller):  # pylint: disable=too-many-ancestors
             self.app.network.run_command(ip, self.app.pargs.cmd)
 
     def get_bootstrap_data(self, ip, network_name):
-        return json.loads(self.app.network.run_command(ip, f'cat {network_name}/.bootstrap.json'))
+        return json.loads(self.app.network.run_command(ip, f'cat /data/{network_name}/.bootstrap.json'))
 
     def _deprovision(self, network_name):
         self.app.log.info(f'Deleting network: {network_name}')
@@ -309,7 +309,7 @@ class Network(Controller):  # pylint: disable=too-many-ancestors
             return
 
         for index, ip in enumerate(networks[name]['ips']):
-            self.app.network.scp(ip, f'oracle_eth_priv_{index}.key', f'{name}/oracle_eth_priv.key')
+            self.app.network.scp(ip, f'oracle_eth_priv_{index}.key', f'/data/{name}/oracle_eth_priv.key')
             self.app.network.run_command(ip, f'hydra client configure '
                                              f'--name={name} --as-oracle 2>&1')
 
@@ -323,22 +323,22 @@ class Network(Controller):  # pylint: disable=too-many-ancestors
         referral_fee = self.app.config['provision']['dpos']['referral_fee']
         for index, ip in enumerate(networks[name]['ips']):
             if index == 0:
-                self.app.network.run_command(ip, f"cd {name}; ./shipchain dpos3 set-registration-requirement "
+                self.app.network.run_command(ip, f"cd /data/{name}; ./shipchain dpos3 set-registration-requirement "
                                              f"{registration_requirement} -k node_priv.key")
-                self.app.network.run_command(ip, f"cd {name}; ./shipchain dpos3 set-max-yearly-reward "
+                self.app.network.run_command(ip, f"cd /data/{name}; ./shipchain dpos3 set-max-yearly-reward "
                                              f"{max_yearly_rewards} -k node_priv.key")
 
                 for node in networks[name]['node_data']:
                     address = networks[name]['node_data'][node]['hex_address']
-                    self.app.network.run_command(ip, f'cd {name}; ./shipchain dpos3 change-whitelist-info {address} '
+                    self.app.network.run_command(ip, f'cd /data/{name}; ./shipchain dpos3 change-whitelist-info {address} '
                                                      f'{registration_requirement} {lock_time} -k node_priv.key')
 
-            self.app.network.run_command(ip, f'cd {name}; ./shipchain dpos3 update-candidate-info '
+            self.app.network.run_command(ip, f'cd /data/{name}; ./shipchain dpos3 update-candidate-info '
                                              f'shipchain-node-{index + 1} "Official ShipChain bootstrap node" '
                                              f'"www.shipchain.io" {referral_fee} -k node_priv.key')
-            self.app.network.run_command(ip, f'cd {name}; ./shipchain dpos3 change-fee {fee} -k node_priv.key')
+            self.app.network.run_command(ip, f'cd /data/{name}; ./shipchain dpos3 change-fee {fee} -k node_priv.key')
 
-            self.app.network.run_command(ip, f"cd {name}; ./shipchain addressmapper add-identity-mapping "
+            self.app.network.run_command(ip, f"cd /data/{name}; ./shipchain addressmapper add-identity-mapping "
                                              f"`jq -r '.hex_address' .bootstrap.json` oracle_eth_priv.key -k node_priv.key")
 
     @ex(
@@ -422,7 +422,7 @@ class Network(Controller):  # pylint: disable=too-many-ancestors
             ]
 
             self.app.log.info(f'Building {tarfile}')
-            self.app.network.run_command(ip, f"cd {name}; "
+            self.app.network.run_command(ip, f"cd /data/{name}; "
                                          f"tar -zcf {tarfile} "
                                          f"{' '.join(jumpstart_include)}")
 
@@ -431,7 +431,7 @@ class Network(Controller):  # pylint: disable=too-many-ancestors
             self.app.network.run_command(ip, f"sudo apt-get -y install awscli 2>&1")
 
             self.app.log.info(f'Uploading {tarfile} to {s3_destination}')
-            self.app.network.run_command(ip, f"cd {name}; aws s3 cp {tarfile} {s3_destination} --acl public-read")
+            self.app.network.run_command(ip, f"cd /data/{name}; aws s3 cp {tarfile} {s3_destination} --acl public-read")
 
             s3 = self.app.release.get_boto().resource('s3')
             try:

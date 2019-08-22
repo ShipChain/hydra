@@ -99,7 +99,7 @@ class NetworkHelper(HydraHelper):
 
         def open_nth_file(file_name, n=0):
             ip = network['ips'][n]
-            output = self.run_command(ip, f'cat {network_name}/{file_name}')
+            output = self.run_command(ip, f'cat /data/{network_name}/{file_name}')
             return output
 
         peers = [(ip, validator['pubkey'], validator['nodekey'])
@@ -351,7 +351,14 @@ class NetworkHelper(HydraHelper):
                 SubnetId=provision_refs.random_subnet
             )
         ]
-        instance.Tags = Tags(Name=f'node{instance_num}')
+        if 'i3' in instance.InstanceType:
+            instance.EbsOptimized = 'true'
+        else:
+            instance.BlockDeviceMappings = [
+                # Set root volume size to 500gb
+                ec2.BlockDeviceMapping(DeviceName='/dev/sda1', Ebs=ec2.EBSBlockDevice(VolumeSize='500'))
+            ]
+        instance.Tags = Tags(Name=f'{stack_name}-node{instance_num}')
         version_flag = f' --version={version}' if version else ''
         join_network_arguments = f'--name={stack_name}{version_flag} --set-default --install --no-configure'
 
@@ -363,9 +370,20 @@ class NetworkHelper(HydraHelper):
                     'apt update -y -q\n',
                     'UCF_FORCE_CONFOLD=1 DEBIAN_FRONTEND=noninteractive apt-get -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" -qq -y install python3-pip\n',
                     'apt install -y -q htop tmux zsh jq || true\n',
-                    'apt remove -y -q python3-yaml\n',
+                    'mkdir /data\n',
+                ] + ([
+                    # If type i3, mount NVMe drive at /data
+                    'DEV=/dev/$(lsblk | grep nvme | awk \'{print $1}\')\n',
+                    'mkfs -t xfs $DEV\n',
+                    'UUID=$(blkid -s UUID -o value $DEV)\n',
+                    'echo "UUID=$UUID /data xfs defaults 0 0" >> /etc/fstab\n',
+                    'mount -a\n'] if 'i3' in instance.InstanceType else []) + [
+                    # Install hydra
                     'pip3 install cement colorlog\n',
                     f'pip3 install {self.app.config.get("provision", "pip_install") % self.app.config["hydra"]}\n',
+                    'chown ubuntu:ubuntu /data\n',
+                    'su -l -c "hydra info" ubuntu\n',  # Generate default hydra.yml
+                    "sed -i 's/workdir: .*/workdir: \\/data/' /home/ubuntu/.hydra.yml\n",  # Change workdir to /data
                     f'su -l -c "hydra client join-network {join_network_arguments}" ubuntu\n'
                 ])
         )

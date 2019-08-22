@@ -561,6 +561,7 @@ if $msg contains "shipchain" or $programname == "start_blockchain.sh" then @@(o)
         with open('start_blockchain.sh', 'w+') as start_script:
             start_script.write('#!/bin/bash\n\n')
             start_script.write('cd "${0%/*}/"\n')
-            start_script.write(f'./shipchain run --persistent-peers {persistent_peers}\n')
+            args = f' --persistent-peers {persistent_peers}' if persistent_peers else ''
+            start_script.write(f'./shipchain run{args}\n')
 
         os.chmod('./start_blockchain.sh', os.stat('./start_blockchain.sh').st_mode | stat.S_IEXEC)

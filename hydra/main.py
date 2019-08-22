@@ -32,7 +32,7 @@ CONFIG['release']['aws_s3_dist_bucket'] = 'shipchain-network-dist'
 CONFIG['provision']['aws_profile'] = None
 CONFIG['provision']['aws_ec2_region'] = 'us-east-1'
 CONFIG['provision']['aws_ec2_instance_type'] = 'm5.xlarge'
-CONFIG['provision']['aws_ec2_ami_id'] = 'ami-07d0cf3af28718ef8'
+CONFIG['provision']['aws_ec2_ami_id'] = 'ami-064a0193585662d74'
 CONFIG['provision']['pip_install'] = 'git+%(project_source)s@master'
 CONFIG['provision']['gateway'] = {  # Rinkeby defaults
     'first_mainnet_block_num': 4197965,
