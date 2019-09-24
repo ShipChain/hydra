@@ -172,7 +172,7 @@ class NetworkHelper(HydraHelper):
                     'tg:check-zamt',
                     'tg:fix-erc721',
                     'tg:v1.1',
-                    'tg:1.2'
+                    'tg:1.2',
                     'tx:check-value',
                     'tx:migration',
                     'tx:migration:v1.1',
