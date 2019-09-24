@@ -182,6 +182,7 @@ class ClientHelper(HydraHelper):
             'ChainConfig': {
                 'ContractEnabled': True
             },
+            'DBBackend': 'cleveldb',
         }
         open(f'loom.yaml', 'w+').write(
             yaml.dump(loom_config, indent=4, default_flow_style=False))
