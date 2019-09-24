@@ -237,7 +237,10 @@ class NetworkHelper(HydraHelper):
                 }
             },
             'FnConsensus': {
-                'Enabled': True
+                'Enabled': True,
+                'Reactor': {
+                    'FnVoteSigningThreshold': 'All'
+                }
             }
         }
 
