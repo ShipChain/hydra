@@ -158,17 +158,24 @@ class NetworkHelper(HydraHelper):
                     'dpos:v3.1',
                     'dpos:v3.2',
                     'dpos:v3.3',
+                    'dpos:v3.4',
                     'dpos:v3.5',
                     'evm:constantinople',
                     'mw:mulcsigtx:v1.1',
                     'mw:userdeploy-wl',
                     'receipts:v2',
+                    'receipts:v3',
+                    'receipts:v3.1',
+                    'receipts:v3.2',
                     'tg:binance-cm',
                     'tg:check-txhash',
                     'tg:check-zamt',
                     'tg:fix-erc721',
+                    'tg:v1.1',
+                    'tg:1.2'
                     'tx:check-value',
                     'tx:migration',
+                    'tx:migration:v1.1',
                     'userdeploy-wl:v1.1',
                     'userdeploy-wl:v1.2'
                 ]
@@ -369,7 +376,7 @@ class NetworkHelper(HydraHelper):
                     '#!/bin/bash -xe\n',
                     'apt update -y -q\n',
                     'UCF_FORCE_CONFOLD=1 DEBIAN_FRONTEND=noninteractive apt-get -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" -qq -y install python3-pip\n',
-                    'apt install -y -q htop tmux zsh jq || true\n',
+                    'apt install -y -q htop tmux zsh jq libleveldb-dev libleveldb1v5 || true\n',
                     'mkdir /data\n',
                 ] + ([
                     # If type i3, mount NVMe drive at /data
