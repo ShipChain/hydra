@@ -328,6 +328,9 @@ class Network(Controller):  # pylint: disable=too-many-ancestors
                 self.app.network.run_command(ip, f"cd /data/{name}; ./shipchain dpos3 set-max-yearly-reward "
                                              f"{max_yearly_rewards} -k node_priv.key")
 
+                self.app.network.run_command(ip, f"cd /data/{name}; ./shipchain gateway update-mainnet-address {self.app.config['provision']['gateway']['mainnet_tg_contract_hex_address']} gateway -k node_priv.key")
+                self.app.network.run_command(ip, f"cd /data/{name}; ./shipchain gateway update-mainnet-address {self.app.config['provision']['gateway']['mainnet_lctg_contract_hex_address']} loomcoin-gateway -k node_priv.key")
+
                 for node in networks[name]['node_data']:
                     address = networks[name]['node_data'][node]['hex_address']
                     self.app.network.run_command(ip, f'cd /data/{name}; ./shipchain dpos3 change-whitelist-info {address} '
