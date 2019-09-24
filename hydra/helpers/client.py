@@ -454,6 +454,18 @@ class ClientHelper(HydraHelper):
         config['p2p']['private_peer_ids'] = ','.join([nodekey for (ip, pub, nodekey) in peers]) if private_peers else ''
         self.app.log.info(f'Editing config.toml: p2p.private_peer_ids = {config["p2p"]["private_peer_ids"]}')
 
+        config['p2p']['send_rate'] = 20000000
+        self.app.log.info(f'Editing config.toml: p2p.send_rate = {config["p2p"]["send_rate"]}')
+
+        config['p2p']['recv_rate'] = 20000000
+        self.app.log.info(f'Editing config.toml: p2p.recv_rate = {config["p2p"]["recv_rate"]}')
+
+        config['p2p']['flush_throttle_timeout'] = '10s'
+        self.app.log.info(f'Editing config.toml: p2p.flush_throttle_timeout = {config["p2p"]["flush_throttle_timeout"]}')
+
+        config['p2p']['max_packet_msg_payload_size'] = 10240
+        self.app.log.info(f'Editing config.toml: p2p.max_packet_msg_payload_size = {config["p2p"]["max_packet_msg_payload_size"]}')
+
         config['proxy_app'] = 'tcp://0.0.0.0:46658'
         self.app.log.info(f'Editing config.toml: proxy_app = {config["proxy_app"]}')
 
@@ -463,7 +475,11 @@ class ClientHelper(HydraHelper):
         config['p2p']['laddr'] = 'tcp://0.0.0.0:46656'
         self.app.log.info(f'Editing config.toml: p2p.laddr = {config["p2p"]["laddr"]}')
 
+        config['recheck'] = False
+        self.app.log.info(f'Editing config.toml: recheck = {config["recheck"]}')
+
         config['db_backend'] = 'cleveldb'
+        self.app.log.info(f'Editing config.toml: db_backend = {config["db_backend"]}')
 
         with open('chaindata/config/config.toml', 'w+') as config_toml:
             config_toml.write(toml.dumps(config))
