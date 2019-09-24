@@ -463,6 +463,8 @@ class ClientHelper(HydraHelper):
         config['p2p']['laddr'] = 'tcp://0.0.0.0:46656'
         self.app.log.info(f'Editing config.toml: p2p.laddr = {config["p2p"]["laddr"]}')
 
+        config['db_backend'] = 'cleveldb'
+
         with open('chaindata/config/config.toml', 'w+') as config_toml:
             config_toml.write(toml.dumps(config))
 
