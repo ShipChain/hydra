@@ -331,10 +331,21 @@ class Network(Controller):  # pylint: disable=too-many-ancestors
                 self.app.network.run_command(ip, f"cd /data/{name}; ./shipchain gateway update-mainnet-address {self.app.config['provision']['gateway']['mainnet_tg_contract_hex_address']} gateway -k node_priv.key")
                 self.app.network.run_command(ip, f"cd /data/{name}; ./shipchain gateway update-mainnet-address {self.app.config['provision']['gateway']['mainnet_lctg_contract_hex_address']} loomcoin-gateway -k node_priv.key")
 
+
+                pub_keys = []
                 for node in networks[name]['node_data']:
+                    pub_keys.append(networks[name]['node_data'][node]['pubkey'])
                     address = networks[name]['node_data'][node]['hex_address']
                     self.app.network.run_command(ip, f'cd /data/{name}; ./shipchain dpos3 change-whitelist-info {address} '
                                                      f'{registration_requirement} {lock_time} -k node_priv.key')
+
+                with open("trusted_validators_pub.key", "w") as trusted_validators:
+                    for line in pub_keys:
+                        trusted_validators.write(line + "\n")
+                self.app.network.scp(ip, 'trusted_validators_pub.key', f'/data/{name}/trusted_validators_pub.key')
+                os.remove("trusted_validators_pub.key")
+                self.app.network.run_command(ip, f"cd /data/{name}; ./shipchain gateway update-trusted-validators trusted_validators_pub.key gateway -k node_priv.key")
+                self.app.network.run_command(ip, f"cd /data/{name}; ./shipchain gateway update-trusted-validators trusted_validators_pub.key loomcoin-gateway -k node_priv.key")
 
             self.app.network.run_command(ip, f'cd /data/{name}; ./shipchain dpos3 update-candidate-info '
                                              f'shipchain-node-{index + 1} "Official ShipChain bootstrap node" '
