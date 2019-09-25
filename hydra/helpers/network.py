@@ -270,6 +270,7 @@ class NetworkHelper(HydraHelper):
             loom_config[gateway]['BatchSignFnConfig'] = {
                 'Enabled': True,
                 'MainnetPrivateKeyPath': 'oracle_eth_priv.key',
+                'MainnetPrivateKeyHsmEnabled': False,
                 'LogLevel': self.app.config['provision']['gateway']['oracle_log_level'],
                 'LogDestination': f'file://{gateway}-oracle.log'
             }
