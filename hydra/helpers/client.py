@@ -459,7 +459,7 @@ class ClientHelper(HydraHelper):
         config['p2p']['recv_rate'] = 20000000
         self.app.log.info(f'Editing config.toml: p2p.recv_rate = {config["p2p"]["recv_rate"]}')
 
-        config['p2p']['flush_throttle_timeout'] = '10s'
+        config['p2p']['flush_throttle_timeout'] = "10ms"
         self.app.log.info(f'Editing config.toml: p2p.flush_throttle_timeout = {config["p2p"]["flush_throttle_timeout"]}')
 
         config['p2p']['max_packet_msg_payload_size'] = 10240
@@ -473,9 +473,6 @@ class ClientHelper(HydraHelper):
 
         config['p2p']['laddr'] = 'tcp://0.0.0.0:46656'
         self.app.log.info(f'Editing config.toml: p2p.laddr = {config["p2p"]["laddr"]}')
-
-        config['recheck'] = True
-        self.app.log.info(f'Editing config.toml: recheck = {config["recheck"]}')
 
         with open('chaindata/config/config.toml', 'w+') as config_toml:
             config_toml.write(toml.dumps(config))
