@@ -182,7 +182,6 @@ class ClientHelper(HydraHelper):
             'ChainConfig': {
                 'ContractEnabled': True
             },
-            'DBBackend': 'cleveldb',
         }
         open(f'loom.yaml', 'w+').write(
             yaml.dump(loom_config, indent=4, default_flow_style=False))
@@ -477,9 +476,6 @@ class ClientHelper(HydraHelper):
 
         config['recheck'] = False
         self.app.log.info(f'Editing config.toml: recheck = {config["recheck"]}')
-
-        config['db_backend'] = 'cleveldb'
-        self.app.log.info(f'Editing config.toml: db_backend = {config["db_backend"]}')
 
         with open('chaindata/config/config.toml', 'w+') as config_toml:
             config_toml.write(toml.dumps(config))
