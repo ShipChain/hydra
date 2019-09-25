@@ -167,6 +167,7 @@ class NetworkHelper(HydraHelper):
                     'receipts:v3',
                     'receipts:v3.1',
                     'receipts:v3.2',
+                    'receipts:v3.3',
                     'tg:binance-cm',
                     'tg:check-txhash',
                     'tg:check-zamt',
