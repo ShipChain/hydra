@@ -29,7 +29,7 @@ class ClientHelper(HydraHelper):
         pip = self.config.get('client', 'pip_install') % self.config['hydra']
         self.app.log.info(f'Updating pip from remote {pip}')
         # Execvp will replace this process with the sidechain
-        os.execvp('pip3', ['pip3', 'install', pip])
+        os.execvp('pip3', ['pip3', 'install', '-U', '--user', pip])
 
     def install_systemd(self, name, destination, user='ubuntu', binary='shipchain'):
         systemd = OrderedDict([

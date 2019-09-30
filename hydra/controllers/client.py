@@ -422,7 +422,7 @@ class Client(Controller):  # pylint: disable=too-many-ancestors
     def restart_service(self):
         name = self.app.utils.env_or_arg(
             'name', 'HYDRA_NETWORK', or_path='.hydra_network', required=True)
-        binary = self.app.pargs.binary
+        binary = self.app.pargs.binary if hasattr(self.app.pargs, 'binary') else 'shipchain'
         self.app.client.stop_service(name, self.app.utils.path(name), binary)
         self.app.client.start_service(name, binary)
 
