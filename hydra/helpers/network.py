@@ -97,9 +97,9 @@ class NetworkHelper(HydraHelper):
         network = networks[network_name]
         folder = f'networks/{network_name}'
 
-        def open_first_file(file_name):
-            ip = network['ips'][0]
-            output = self.run_command(ip, f'cat {network_name}/{file_name}')
+        def open_nth_file(file_name, n=0):
+            ip = network['ips'][n]
+            output = self.run_command(ip, f'cat /data/{network_name}/{file_name}')
             return output
 
         peers = [(ip, validator['pubkey'], validator['nodekey'])
@@ -107,7 +107,7 @@ class NetworkHelper(HydraHelper):
 
         os.makedirs(f'networks/{network_name}/chaindata/config/', exist_ok=True)
 
-        cd_genesis = json.loads(open_first_file('chaindata/config/genesis.json'))
+        cd_genesis = json.loads(open_nth_file('chaindata/config/genesis.json'))
         cd_genesis['genesis_time'] = '1970-01-01T00:00:00Z'
         cd_genesis['validators'] = [
             {
@@ -124,11 +124,11 @@ class NetworkHelper(HydraHelper):
         json.dump(cd_genesis, open(f'{folder}/chaindata/config/genesis.json', 'w+'), indent=4)
 
         # GENESIS.json
-        genesis = json.loads(open_first_file('genesis.json'))
-        oracle_addr = open_first_file('node_addr.b64')
+        genesis = json.loads(open_nth_file('genesis.json'))
+        oracle_addrs = [open_nth_file('node_addr.b64', n) for n in range(0, len(network['ips']))]
 
         for contract_num, contract in enumerate(genesis['contracts']):
-            if contract['name'] == 'dposV2':
+            if contract['name'] == 'dposV3':
                 genesis['contracts'][contract_num]['init']['params']['validatorCount'] = str(
                     self.app.config['provision']['dpos']['validator_count'])
                 genesis['contracts'][contract_num]['init']['params']['electionCycleLength'] = str(
@@ -139,33 +139,68 @@ class NetworkHelper(HydraHelper):
                 ]
                 genesis['contracts'][contract_num]['init']['params']['oracleAddress'] = {
                     "chain_id": "default",
-                    "local": oracle_addr,
+                    "local": oracle_addrs[0],
                 }
             elif contract['name'] == 'chainconfig':
-                genesis['contracts'][contract_num]['init']['features'] = [
-                    {
-                        "name": "auth:sigtx:eth",
-                        "status": "WAITING"
-                    },
-                    {
-                        "name": "auth:sigtx:default",
-                        "status": "WAITING"
-                    },
-                    {
-                        "name": "tg:check-txhash",
-                        "status": "WAITING"
-                    }
+                features = [
+                    'addrmapper:v1.1',
+                    'auth:sigtx:default',
+                    'auth:sigtx:eth',
+                    'chaincfg:v1.1',
+                    'chaincfg:v1.2',
+                    'chaincfg:v1.3',
+                    'coin:v1.1',
+                    'coin:v1.2',
+                    'db:auxevm',
+                    'db:evm',
+                    'deploytx:v1.1',
+                    'dpos:v3',
+                    'dpos:v3.1',
+                    'dpos:v3.2',
+                    'dpos:v3.3',
+                    'dpos:v3.4',
+                    'dpos:v3.5',
+                    'evm:constantinople',
+                    'mw:mulcsigtx:v1.1',
+                    'mw:userdeploy-wl',
+                    'receipts:v2',
+                    'receipts:v3',
+                    'receipts:v3.1',
+                    # 'receipts:v3.2',
+                    # 'receipts:v3.3',
+                    'receipts:v3.4',
+                    'tg:binance-cm',
+                    'tg:check-txhash',
+                    'tg:check-zamt',
+                    'tg:fix-erc721',
+                    'tg:v1.1',
+                    'tg:1.2',
+                    'tx:check-value',
+                    'tx:migration',
+                    'tx:migration:v1.1',
+                    'userdeploy-wl:v1.1',
+                    'userdeploy-wl:v1.2'
                 ]
+                contract['init']['features'] = [
+                    {
+                        "name": feature,
+                        "status": "WAITING"
+                    } for feature in features
+                ]
+                contract['init']['params'] = {
+                    "voteThreshold": "67",
+                    "numBlockConfirmations": "1"
+                }
             elif 'gateway' in contract['name']:
                 genesis['contracts'][contract_num]['init'] = {
                     "owner": {
                         "chain_id": "default",
-                        "local": oracle_addr,
+                        "local": oracle_addrs[0],
                     },
                     "oracles": [
                         {
                             "chain_id": "default",
-                            "local": oracle_addr,
+                            "local": oracle_addrs[0],
                         }
                     ],
                     "first_mainnet_block_num": str(self.app.config['provision']['gateway']['first_mainnet_block_num'])
@@ -177,7 +212,7 @@ class NetworkHelper(HydraHelper):
         loom_config = {
             'ChainID': 'default',
             'RegistryVersion': 2,
-            'DPOSVersion': 2,
+            'DPOSVersion': 3,
             'ReceiptsVersion': 2,
             'LoomLogLevel': self.app.config['loom']['loom_log_level'],
             'ContractLogLevel': self.app.config['loom']['contract_log_level'],
@@ -202,8 +237,12 @@ class NetworkHelper(HydraHelper):
                         'AccountType': 1
                     }
                 }
+            },
+            'FnConsensus': {
+                'Enabled': True,
             }
         }
+
         open(f'{folder}/loom.yaml', 'w+').write(
             yaml.dump(loom_config, indent=4, default_flow_style=False))
 
@@ -287,6 +326,14 @@ class NetworkHelper(HydraHelper):
                 SubnetId=provision_refs.random_subnet
             )
         ]
+        if 'i3' in instance.InstanceType:
+            instance.EbsOptimized = 'true'
+        else:
+            instance.BlockDeviceMappings = [
+                # Set root volume size to 500gb
+                ec2.BlockDeviceMapping(DeviceName='/dev/sda1', Ebs=ec2.EBSBlockDevice(VolumeSize='500'))
+            ]
+        instance.Tags = Tags(Name=f'{stack_name}-node{instance_num}')
         version_flag = f' --version={version}' if version else ''
         join_network_arguments = f'--name={stack_name}{version_flag} --set-default --install --no-configure'
 
@@ -297,10 +344,21 @@ class NetworkHelper(HydraHelper):
                     '#!/bin/bash -xe\n',
                     'apt update -y -q\n',
                     'UCF_FORCE_CONFOLD=1 DEBIAN_FRONTEND=noninteractive apt-get -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" -qq -y install python3-pip\n',
-                    'apt install -y -q htop tmux zsh jq || true\n',
-                    'apt remove -y -q python3-yaml\n',
+                    'apt install -y -q htop tmux zsh jq libleveldb-dev libleveldb1v5 || true\n',
+                    'mkdir /data\n',
+                ] + ([
+                    # If type i3, mount NVMe drive at /data
+                    'DEV=/dev/$(lsblk | grep nvme | awk \'{print $1}\')\n',
+                    'mkfs -t xfs $DEV\n',
+                    'UUID=$(blkid -s UUID -o value $DEV)\n',
+                    'echo "UUID=$UUID /data xfs defaults 0 0" >> /etc/fstab\n',
+                    'mount -a\n'] if 'i3' in instance.InstanceType else []) + [
+                    # Install hydra
                     'pip3 install cement colorlog\n',
                     f'pip3 install {self.app.config.get("provision", "pip_install") % self.app.config["hydra"]}\n',
+                    'chown ubuntu:ubuntu /data\n',
+                    'su -l -c "hydra info" ubuntu\n',  # Generate default hydra.yml
+                    "sed -i 's/workdir: .*/workdir: \\/data/' /home/ubuntu/.hydra.yml\n",  # Change workdir to /data
                     f'su -l -c "hydra client join-network {join_network_arguments}" ubuntu\n'
                 ])
         )
@@ -493,6 +551,19 @@ class NetworkHelper(HydraHelper):
                     RuleNumber='102',
                     Protocol='1',
                     Icmp=ec2.ICMP(Code=-1, Type=-1),
+                    Egress='false',
+                    RuleAction='allow',
+                    CidrBlock='0.0.0.0/0',
+                ))
+
+            # Only used when Blockscout is deployed
+            template.add_resource(
+                ec2.NetworkAclEntry(
+                    'InboundHttpsNetworkAclEntry',
+                    NetworkAclId=Ref(network_acl),
+                    RuleNumber='103',
+                    Protocol='6',
+                    PortRange=ec2.PortRange(From='443', To='443'),
                     Egress='false',
                     RuleAction='allow',
                     CidrBlock='0.0.0.0/0',

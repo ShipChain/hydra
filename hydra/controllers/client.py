@@ -122,6 +122,14 @@ class Client(Controller):  # pylint: disable=too-many-ancestors
                     'default': 'true'
                 }
             ),
+            (
+                ['--as-oracle'],
+                {
+                    'help': 'join the network as the transfer-gateway oracle',
+                    'action': 'store_true',
+                    'dest': 'oracle'
+                }
+            ),
         ]
     )
     def join_network(self):
@@ -156,7 +164,7 @@ class Client(Controller):  # pylint: disable=too-many-ancestors
             self.app.client.jumpstart(name, destination, self.app.pargs.jumpstart)
 
         if self.app.pargs.do_configure:
-            self.app.client.configure(name, destination, version=version)
+            self.app.client.configure(name, destination, version=version, oracle=self.app.pargs.oracle)
 
         if self.app.pargs.install:
             self.app.client.install_systemd(
@@ -228,6 +236,14 @@ class Client(Controller):  # pylint: disable=too-many-ancestors
         if self.app.pargs.install:
             self.app.client.install_systemd(
                 name, destination, user=self.app.utils.binary_exec('whoami').stdout.strip())
+
+        if self.app.pargs.oracle:
+            self.app.client.install_systemd(
+                name, destination,
+                user=self.app.utils.binary_exec('whoami').stdout.strip(), binary='tgoracle')
+            self.app.client.install_systemd(
+                name, destination,
+                user=self.app.utils.binary_exec('whoami').stdout.strip(), binary='loomcoin_tgoracle')
 
     @ex(
         arguments=[
@@ -337,18 +353,22 @@ class Client(Controller):  # pylint: disable=too-many-ancestors
                     'dest': 'name'
                 }
             ),
+            (
+                ['-s', '--service'],
+                {
+                    'help': 'binary/name of service',
+                    'action': 'store',
+                    'default': 'shipchain',
+                    'choices': ['shipchain', 'tgoracle', 'loomcoin_tgoracle'],
+                    'dest': 'binary'
+                }
+            ),
         ]
     )
     def stop_service(self):
         name = self.app.utils.env_or_arg('name', 'HYDRA_NETWORK', or_path='.hydra_network', required=True)
-
-        command = ['sudo', 'systemctl', 'stop', name]
-        self.app.log.info(' '.join(command))
-        self.app.utils.binary_exec(*command)
-
-        command = ['sudo', 'systemctl', 'kill', name]
-        self.app.log.info(' '.join(command))
-        self.app.utils.binary_exec(*command)
+        binary = self.app.pargs.binary
+        self.app.client.stop_service(name, self.app.utils.path(name), binary)
 
     @ex(
         arguments=[
@@ -360,14 +380,22 @@ class Client(Controller):  # pylint: disable=too-many-ancestors
                     'dest': 'name'
                 }
             ),
+            (
+                ['-s', '--service'],
+                {
+                    'help': 'binary/name of service',
+                    'action': 'store',
+                    'default': 'shipchain',
+                    'choices': ['shipchain', 'tgoracle', 'loomcoin_tgoracle'],
+                    'dest': 'binary'
+                }
+            ),
         ]
     )
     def start_service(self):
         name = self.app.utils.env_or_arg('name', 'HYDRA_NETWORK', or_path='.hydra_network', required=True)
-
-        command = ['sudo', 'systemctl', 'start', name]
-        self.app.log.info(' '.join(command))
-        self.app.utils.binary_exec(*command)
+        binary = self.app.pargs.binary
+        self.app.client.start_service(name, binary)
 
     @ex(
         arguments=[
@@ -379,23 +407,24 @@ class Client(Controller):  # pylint: disable=too-many-ancestors
                     'dest': 'name'
                 }
             ),
+            (
+                ['-s', '--service'],
+                {
+                    'help': 'binary/name of service',
+                    'action': 'store',
+                    'default': 'shipchain',
+                    'choices': ['shipchain', 'tgoracle', 'loomcoin_tgoracle'],
+                    'dest': 'binary'
+                }
+            ),
         ]
     )
     def restart_service(self):
         name = self.app.utils.env_or_arg(
             'name', 'HYDRA_NETWORK', or_path='.hydra_network', required=True)
-
-        command = ['sudo', 'systemctl', 'stop', name]
-        self.app.log.info(' '.join(command))
-        self.app.utils.binary_exec(*command)
-
-        command = ['sudo', 'systemctl', 'kill', name]
-        self.app.log.info(' '.join(command))
-        self.app.utils.binary_exec(*command)
-
-        command = ['sudo', 'systemctl', 'start', name]
-        self.app.log.info(' '.join(command))
-        self.app.utils.binary_exec(*command)
+        binary = self.app.pargs.binary
+        self.app.client.stop_service(name, self.app.utils.path(name), binary)
+        self.app.client.start_service(name, binary)
 
     @ex(
         arguments=[
@@ -566,8 +595,9 @@ class Client(Controller):  # pylint: disable=too-many-ancestors
         json.dump(info, open('.validator-info.json', 'w'), indent=2)
 
         # Update DPoS info
-        command = ['./shipchain', 'call', '-k', 'node_priv.key', 'update_candidate_info',
-                   info['node_name'], info['description'], info['website']]
+        referral_fee = self.app.config['provision']['dpos']['referral_fee']
+        command = ['./shipchain', 'dpos3', '-k', 'node_priv.key', 'update-candidate-info',
+                   info['node_name'], info['description'], info['website'], referral_fee]
 
         self.app.log.info(' '.join(command))
         cmd_output = self.app.utils.binary_exec(*command).stdout.strip()

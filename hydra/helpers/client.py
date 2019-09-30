@@ -31,7 +31,7 @@ class ClientHelper(HydraHelper):
         # Execvp will replace this process with the sidechain
         os.execvp('pip3', ['pip3', 'install', pip])
 
-    def install_systemd(self, name, destination, user='ubuntu'):
+    def install_systemd(self, name, destination, user='ubuntu', binary='shipchain'):
         systemd = OrderedDict([
             ('Unit', OrderedDict([
                 ('Description', f'{name} Loom Node'),
@@ -41,7 +41,7 @@ class ClientHelper(HydraHelper):
                 ('Type', 'simple'),
                 ('User', user),
                 ('WorkingDirectory', destination),
-                ('ExecStart', f'{destination}/start_blockchain.sh'),
+                ('ExecStart', f'{destination}/{"start_blockchain.sh" if binary is "shipchain" else binary}'),
                 ('Restart', 'always'),
                 ('RestartSec', 2),
                 ('StartLimitInterval', 0),
@@ -54,7 +54,7 @@ class ClientHelper(HydraHelper):
             ])),
         ])
 
-        service_name = f'{name}.service'
+        service_name = f'{name}{"" if binary is "shipchain" else f".{binary}"}.service'
         self.app.log.info(f'Writing to {service_name}')
 
         with open(service_name, 'w+') as service_file:
@@ -69,8 +69,8 @@ class ClientHelper(HydraHelper):
         self.app.utils.binary_exec('sudo', 'systemctl', 'enable', service_name)
         self.app.utils.binary_exec('sudo', 'systemctl', 'start', service_name)
 
-    def uninstall_systemd(self, name):
-        service_name = f'{name}.service'
+    def uninstall_systemd(self, name, binary='shipchain'):
+        service_name = f'{name}{"" if binary is "shipchain" else f".{binary}"}.service'
         systemd_service = f'/etc/systemd/system/{service_name}'
 
         self.app.log.info(f'Uninstalling {service_name}')
@@ -83,48 +83,48 @@ class ClientHelper(HydraHelper):
         self.app.utils.binary_exec('sudo', 'systemctl', 'reset-failed', service_name)
         self.app.utils.binary_exec('sudo', 'systemctl', 'daemon-reload')
 
-    def find_and_kill_executable(self, destination):
-        pid = self.app.client.get_pid(os.path.join(destination, 'shipchain'))
+    def find_and_kill_executable(self, destination, binary='shipchain'):
+        pid = self.app.client.get_pid(os.path.join(destination, binary), binary)
         if pid:
             self.app.log.info(f'Found matching executable running as PID {pid}')
             self.app.utils.binary_exec('sudo', 'kill', pid)
         else:
             self.app.log.info(f'No matching executable running.  Continuing.')
 
-    def stop_service(self, name, destination):
-        service_name = f'{name}.service'
+    def stop_service(self, name, destination, binary='shipchain'):
+        service_name = f'{name}{"" if binary is "shipchain" else f".{binary}"}.service'
         systemd_service = f'/etc/systemd/system/{service_name}'
 
         if os.path.exists(systemd_service):
-            command = ['sudo', 'systemctl', 'stop', name]
+            command = ['sudo', 'systemctl', 'stop', f'{name}{"" if binary is "shipchain" else f".{binary}"}']
             self.app.log.info(' '.join(command))
             self.app.utils.binary_exec(*command)
 
             time.sleep(1)
 
-            command = ['sudo', 'systemctl', 'kill', name]
+            command = ['sudo', 'systemctl', 'kill', f'{name}{"" if binary is "shipchain" else f".{binary}"}']
             self.app.log.info(' '.join(command))
             self.app.utils.binary_exec(*command)
         else:
             self.app.log.info(f'Service not installed.  Attempting to stop executable.')
-            self.app.client.find_and_kill_executable(destination)
+            self.app.client.find_and_kill_executable(destination, binary)
 
-    def start_service(self, name):
-        service_name = f'{name}.service'
+    def start_service(self, name, binary='shipchain'):
+        service_name = f'{name}{"" if binary is "shipchain" else f".{binary}"}.service'
         systemd_service = f'/etc/systemd/system/{service_name}'
 
         if os.path.exists(systemd_service):
-            command = ['sudo', 'systemctl', 'start', name]
+            command = ['sudo', 'systemctl', 'start', f'{name}{"" if binary is "shipchain" else f".{binary}"}']
             self.app.log.info(' '.join(command))
             self.app.utils.binary_exec(*command)
         else:
             self.app.log.warning(f'Service not installed.  You will need to restart your node manually.')
 
-    def get_pid(self, executable_path):
-        self.app.log.info(f'Scanning for running `shipchain` executables')
+    def get_pid(self, executable_path, binary='shipchain'):
+        self.app.log.info(f'Scanning for running `{binary}` executables')
 
         try:
-            pid_list = map(int, subprocess.check_output(['pidof', 'shipchain']).split())
+            pid_list = map(int, subprocess.check_output(['pidof', binary]).split())
         except subprocess.CalledProcessError:
             return None
 
@@ -153,8 +153,12 @@ class ClientHelper(HydraHelper):
         os.chdir(destination)
 
         self.app.utils.download_release_file('./shipchain', 'shipchain', version)
+        self.app.utils.download_release_file('./tgoracle', 'tgoracle', version)
+        self.app.utils.download_release_file('./loomcoin_tgoracle', 'loomcoin_tgoracle', version)
 
         os.chmod('./shipchain', os.stat('./shipchain').st_mode | stat.S_IEXEC)
+        os.chmod('./tgoracle', os.stat('./tgoracle').st_mode | stat.S_IEXEC)
+        os.chmod('./loomcoin_tgoracle', os.stat('./loomcoin_tgoracle').st_mode | stat.S_IEXEC)
 
         got_version = self.app.utils.binary_exec('./shipchain', 'version').stderr.strip()
         self.app.log.debug(f'Copied ShipChain binary version {got_version}')
@@ -163,7 +167,7 @@ class ClientHelper(HydraHelper):
         loom_config = {
             'ChainID': 'default',
             'RegistryVersion': 2,
-            'DPOSVersion': 2,
+            'DPOSVersion': 3,
             'ReceiptsVersion': 2,
             'EVMAccountsEnabled': True,
             'TransferGateway': {
@@ -172,9 +176,13 @@ class ClientHelper(HydraHelper):
             'LoomCoinTransferGateway': {
                 'ContractEnabled': True
             },
+            'BinanceTransferGateway': {
+                'ContractEnabled': False
+            },
             'ChainConfig': {
                 'ContractEnabled': True
             },
+            'DBBackend': 'cleveldb',
         }
         open(f'loom.yaml', 'w+').write(
             yaml.dump(loom_config, indent=4, default_flow_style=False))
@@ -282,11 +290,13 @@ class ClientHelper(HydraHelper):
             cfg = yaml.load(config_file)
 
         for gateway in ('TransferGateway', 'LoomCoinTransferGateway'):
-            cfg[gateway]['OracleEnabled'] = True
+            cfg[gateway]['ContractEnabled'] = True
+            cfg[gateway]['OracleEnabled'] = False
             cfg[gateway]['EthereumURI'] = self.app.config['provision']['gateway']['ethereum_uri']
 
             cfg[gateway]['MainnetPrivateKeyPath'] = 'oracle_eth_priv.key'
-            cfg[gateway]['MainnetPollInterval'] = self.app.config['provision']['gateway']['mainnet_poll_interval']
+            cfg[gateway]['MainnetPollInterval'] = self.app.config['provision']['gateway'][
+                'mainnet_poll_interval']
 
             cfg[gateway]['DAppChainPrivateKeyPath'] = 'node_priv.key'
             cfg[gateway]['DAppChainReadURI'] = 'http://localhost:46658/query'
@@ -300,6 +310,8 @@ class ClientHelper(HydraHelper):
             cfg[gateway]['OracleStartupDelay'] = self.app.config['provision']['gateway']['oracle_startup_delay']
             cfg[gateway]['OracleReconnectInterval'] = self.app.config['provision']['gateway'][
                 'oracle_reconnect_interval']
+
+            cfg[gateway]['WithdrawalSig'] = 2
 
         cfg['TransferGateway']['MainnetContractHexAddress'] = self.app.config['provision']['gateway'][
             'mainnet_tg_contract_hex_address']
@@ -478,6 +490,18 @@ class ClientHelper(HydraHelper):
         config['p2p']['private_peer_ids'] = ','.join([nodekey for (ip, pub, nodekey) in peers]) if private_peers else ''
         self.app.log.info(f'Editing config.toml: p2p.private_peer_ids = {config["p2p"]["private_peer_ids"]}')
 
+        config['p2p']['send_rate'] = 20000000
+        self.app.log.info(f'Editing config.toml: p2p.send_rate = {config["p2p"]["send_rate"]}')
+
+        config['p2p']['recv_rate'] = 20000000
+        self.app.log.info(f'Editing config.toml: p2p.recv_rate = {config["p2p"]["recv_rate"]}')
+
+        config['p2p']['flush_throttle_timeout'] = "10ms"
+        self.app.log.info(f'Editing config.toml: p2p.flush_throttle_timeout = {config["p2p"]["flush_throttle_timeout"]}')
+
+        config['p2p']['max_packet_msg_payload_size'] = 10240
+        self.app.log.info(f'Editing config.toml: p2p.max_packet_msg_payload_size = {config["p2p"]["max_packet_msg_payload_size"]}')
+
         config['proxy_app'] = 'tcp://0.0.0.0:46658'
         self.app.log.info(f'Editing config.toml: proxy_app = {config["proxy_app"]}')
 
@@ -486,6 +510,12 @@ class ClientHelper(HydraHelper):
 
         config['p2p']['laddr'] = 'tcp://0.0.0.0:46656'
         self.app.log.info(f'Editing config.toml: p2p.laddr = {config["p2p"]["laddr"]}')
+
+        config['recheck'] = False
+        self.app.log.info(f'Editing config.toml: recheck = {config["recheck"]}')
+
+        config['db_backend'] = 'cleveldb'
+        self.app.log.info(f'Editing config.toml: db_backend = {config["db_backend"]}')
 
         with open('chaindata/config/config.toml', 'w+') as config_toml:
             config_toml.write(toml.dumps(config))
@@ -586,6 +616,7 @@ if $msg contains "shipchain" or $programname == "start_blockchain.sh" then @@(o)
         with open('start_blockchain.sh', 'w+') as start_script:
             start_script.write('#!/bin/bash\n\n')
             start_script.write('cd "${0%/*}/"\n')
-            start_script.write(f'./shipchain run --persistent-peers {persistent_peers}\n')
+            args = f' --persistent-peers {persistent_peers}' if persistent_peers else ''
+            start_script.write(f'./shipchain run{args}\n')
 
         os.chmod('./start_blockchain.sh', os.stat('./start_blockchain.sh').st_mode | stat.S_IEXEC)

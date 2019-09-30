@@ -32,13 +32,13 @@ CONFIG['release']['aws_s3_dist_bucket'] = 'shipchain-network-dist'
 CONFIG['provision']['aws_profile'] = None
 CONFIG['provision']['aws_ec2_region'] = 'us-east-1'
 CONFIG['provision']['aws_ec2_instance_type'] = 'm5.xlarge'
-CONFIG['provision']['aws_ec2_ami_id'] = 'ami-024a64a6685d05041'
+CONFIG['provision']['aws_ec2_ami_id'] = 'ami-05ecb1463f8f1ee4b'
 CONFIG['provision']['pip_install'] = 'git+%(project_source)s@master'
 CONFIG['provision']['gateway'] = {  # Rinkeby defaults
-    'first_mainnet_block_num': 4197965,
+    'first_mainnet_block_num': 5180863,
     'ethereum_uri': 'https://rinkeby.infura.io/v3/1b8e8507933f40529210b790fcf7300e',
-    'mainnet_tg_contract_hex_address': '0x517D2F00adD655862c546690e219076C160df209',
-    'mainnet_lctg_contract_hex_address': '0x30754a3D79B47Cf402D36Fa6EfB7039dcBB52c7b',
+    'mainnet_tg_contract_hex_address': '0x1D2f42918451833947D793137B0293AF49677517',
+    'mainnet_lctg_contract_hex_address': '0xE9edf0E98286DA79bB4C205a3E0340D9D1485840',
     'mainnet_poll_interval': 60,
     'dappchain_poll_interval': 60,
     'oracle_log_level': 'debug',
@@ -51,7 +51,8 @@ CONFIG['provision']['dpos'] = {
     'registration_requirement': 250000,
     'max_yearly_rewards': 30000000,
     'lock_time': 0,
-    'fee': 2500
+    'fee': 2500,
+    'referral_fee': 300
 }
 CONFIG['loom']['loom_log_name'] = 'loom.log'
 CONFIG['loom']['loom_log_level'] = 'debug'
