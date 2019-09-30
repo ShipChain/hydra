@@ -33,7 +33,7 @@ CONFIG['provision']['aws_profile'] = None
 CONFIG['provision']['aws_ec2_region'] = 'us-east-1'
 CONFIG['provision']['aws_ec2_instance_type'] = 'm5.xlarge'
 CONFIG['provision']['aws_ec2_ami_id'] = 'ami-05ecb1463f8f1ee4b'
-CONFIG['provision']['pip_install'] = 'git+%(project_source)s@master'
+CONFIG['provision']['pip_install'] = 'shipchain-hydra'
 CONFIG['provision']['gateway'] = {  # Rinkeby defaults
     'first_mainnet_block_num': 5180863,
     'ethereum_uri': 'https://rinkeby.infura.io/v3/1b8e8507933f40529210b790fcf7300e',
@@ -59,7 +59,7 @@ CONFIG['loom']['loom_log_level'] = 'debug'
 CONFIG['loom']['contract_log_level'] = 'debug'
 CONFIG['loom']['blockchain_log_level'] = 'error'
 CONFIG['devel']['path'] = '%(workdir)s/devel'
-CONFIG['client']['pip_install'] = 'git+%(project_source)s@master'
+CONFIG['client']['pip_install'] = 'shipchain-hydra'
 
 META = init_defaults('output.json')
 META['output.json']['overridable'] = True

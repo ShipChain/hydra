@@ -14,7 +14,7 @@ with open('requirements.txt') as f:
         install_requires.append(line)
 
 setup(
-    name='hydra',
+    name='shipchain-hydra',
     version=VERSION,
     description='Hydra manages many heads of networks',
     long_description=LONG_DESCRIPTION,
@@ -26,7 +26,7 @@ setup(
     classifiers=[
         # Trove classifiers
         # Full list: https://pypi.python.org/pypi?%3Aaction=list_classifiers
-        'Development Status :: 4 - Beta',
+        'Development Status :: 5 - Production/Stable',
         'Environment :: Console',
         'License :: OSI Approved :: Apache Software License',
         'Programming Language :: Python',
