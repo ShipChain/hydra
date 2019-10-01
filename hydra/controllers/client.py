@@ -922,6 +922,9 @@ class Client(Controller):  # pylint: disable=too-many-ancestors
         os.chdir(network_folder)
 
         files_to_backup = [
+            'node_addr.b64',
+            'node_priv.key',
+            'node_pub.key',
             'chaindata/config/node_key.json',
             'chaindata/config/priv_validator.json',
         ]
@@ -984,6 +987,9 @@ class Client(Controller):  # pylint: disable=too-many-ancestors
         os.chdir(network_folder)
 
         files_to_restore = [
+            'node_addr.b64',
+            'node_priv.key',
+            'node_pub.key',
             'chaindata/config/node_key.json',
             'chaindata/config/priv_validator.json',
         ]
