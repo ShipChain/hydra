@@ -46,7 +46,7 @@ CONFIG['provision']['gateway'] = {  # Rinkeby defaults
     'oracle_reconnect_interval': 5
 }
 CONFIG['provision']['dpos'] = {
-    'validator_count': 21,
+    'validator_count': 51,
     'election_cycle_length': 30,
     'registration_requirement': 250000,
     'max_yearly_rewards': 30000000,
