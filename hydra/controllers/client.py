@@ -596,7 +596,7 @@ class Client(Controller):  # pylint: disable=too-many-ancestors
         json.dump(info, open('.validator-info.json', 'w'), indent=2)
 
         # Update DPoS info
-        referral_fee = self.app.config['provision']['dpos']['referral_fee']
+        referral_fee = self.app.config['provision']['dpos'].get('referral_fee', hydra.main.CONFIG['provision']['referral_fee'])
         command = ['./shipchain', 'dpos3', '-k', 'node_priv.key', '--chain',
                    self.app.config['provision'].get('chain_id', hydra.main.CONFIG['provision']['chain_id']),
                    'update-candidate-info', info['node_name'], info['description'], info['website'], str(referral_fee)]
