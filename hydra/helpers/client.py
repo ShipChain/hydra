@@ -21,6 +21,7 @@ from tqdm import tqdm
 
 from hydra.core.exc import HydraError
 from hydra.core.version import get_version
+import hydra.main
 from . import HydraHelper
 
 
@@ -165,7 +166,7 @@ class ClientHelper(HydraHelper):
 
         # LOOM.YAML defaults for generating initial genesis.json
         loom_config = {
-            'ChainID': 'default',
+            'ChainID': self.app.config['provision'].get('chain_id', hydra.main.CONFIG['provision']['chain_id']),
             'RegistryVersion': 2,
             'DPOSVersion': 3,
             'ReceiptsVersion': 2,

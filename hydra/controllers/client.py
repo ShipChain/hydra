@@ -11,6 +11,7 @@ from cement import Controller, ex
 from cement.utils.shell import Prompt
 
 from hydra.core.exc import HydraError
+import hydra.main
 
 
 class Client(Controller):  # pylint: disable=too-many-ancestors
@@ -596,8 +597,9 @@ class Client(Controller):  # pylint: disable=too-many-ancestors
 
         # Update DPoS info
         referral_fee = self.app.config['provision']['dpos']['referral_fee']
-        command = ['./shipchain', 'dpos3', '-k', 'node_priv.key', 'update-candidate-info',
-                   info['node_name'], info['description'], info['website'], str(referral_fee)]
+        command = ['./shipchain', 'dpos3', '-k', 'node_priv.key', '--chain',
+                   self.app.config['provision'].get('chain_id', hydra.main.CONFIG['provision']['chain_id']),
+                   'update-candidate-info', info['node_name'], info['description'], info['website'], str(referral_fee)]
 
         self.app.log.info(' '.join(command))
         cmd_output = self.app.utils.binary_exec(*command).stdout.strip()

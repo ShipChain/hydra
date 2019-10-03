@@ -325,26 +325,26 @@ class Network(Controller):  # pylint: disable=too-many-ancestors
         for index, ip in enumerate(networks[name]['ips']):
             if index == 0:
                 self.app.network.run_command(ip, f"cd /data/{name}; ./shipchain dpos3 set-registration-requirement "
-                                             f"{registration_requirement} -k node_priv.key")
+                                             f"{registration_requirement} -k node_priv.key --chain {self.app.config['provision']['chain_id']}")
                 self.app.network.run_command(ip, f"cd /data/{name}; ./shipchain dpos3 set-max-yearly-reward "
-                                             f"{max_yearly_rewards} -k node_priv.key")
+                                             f"{max_yearly_rewards} -k node_priv.key --chain {self.app.config['provision']['chain_id']}")
 
-                self.app.network.run_command(ip, f"cd /data/{name}; ./shipchain gateway update-mainnet-address {self.app.config['provision']['gateway']['mainnet_tg_contract_hex_address']} gateway -k node_priv.key")
-                self.app.network.run_command(ip, f"cd /data/{name}; ./shipchain gateway update-mainnet-address {self.app.config['provision']['gateway']['mainnet_lctg_contract_hex_address']} loomcoin-gateway -k node_priv.key")
+                self.app.network.run_command(ip, f"cd /data/{name}; ./shipchain gateway update-mainnet-address {self.app.config['provision']['gateway']['mainnet_tg_contract_hex_address']} gateway -k node_priv.key --chain {self.app.config['provision']['chain_id']}")
+                self.app.network.run_command(ip, f"cd /data/{name}; ./shipchain gateway update-mainnet-address {self.app.config['provision']['gateway']['mainnet_lctg_contract_hex_address']} loomcoin-gateway -k node_priv.key --chain {self.app.config['provision']['chain_id']}")
 
                 for node in networks[name]['node_data']:
                     address = networks[name]['node_data'][node]['hex_address']
                     self.app.network.run_command(ip, f'cd /data/{name}; ./shipchain dpos3 change-whitelist-info {address} '
-                                                     f'{registration_requirement} {lock_time} -k node_priv.key')
+                                                     f"{registration_requirement} {lock_time} -k node_priv.key --chain {self.app.config['provision']['chain_id']}")
 
                 self.app.network.run_command(ip, f"cd /data/{name}; ./shipchain addressmapper add-identity-mapping "
-                                                 f"`jq -r '.hex_address' .bootstrap.json` oracle_eth_priv.key -k node_priv.key")
+                                                 f"`jq -r '.hex_address' .bootstrap.json` oracle_eth_priv.key -k node_priv.key --chain {self.app.config['provision']['chain_id']}")
 
 
             self.app.network.run_command(ip, f'cd /data/{name}; ./shipchain dpos3 update-candidate-info '
                                              f'shipchain-node-{index + 1} "Official ShipChain bootstrap node" '
-                                             f'"www.shipchain.io" {referral_fee} -k node_priv.key')
-            self.app.network.run_command(ip, f'cd /data/{name}; ./shipchain dpos3 change-fee {fee} -k node_priv.key')
+                                             f"\"www.shipchain.io\" {referral_fee} -k node_priv.key --chain {self.app.config['provision']['chain_id']}")
+            self.app.network.run_command(ip, f"cd /data/{name}; ./shipchain dpos3 change-fee {fee} -k node_priv.key --chain {self.app.config['provision']['chain_id']}")
 
 
     @ex(

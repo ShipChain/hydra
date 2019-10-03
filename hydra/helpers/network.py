@@ -138,13 +138,13 @@ class NetworkHelper(HydraHelper):
                     for ip, pubkey, nodekey in peers
                 ]
                 genesis['contracts'][contract_num]['init']['params']['oracleAddress'] = {
-                    "chain_id": "default",
+                    "chain_id": self.app.config['provision']['chain_id'],
                     "local": oracle_addrs[0],
                 }
             elif contract['name'] == 'chainconfig':
                 features = [
                     'addrmapper:v1.1',
-                    'auth:sigtx:default',
+                    f"auth:sigtx:{self.app.config['provision']['chain_id']}",
                     'auth:sigtx:eth',
                     'chaincfg:v1.1',
                     'chaincfg:v1.2',
@@ -194,12 +194,12 @@ class NetworkHelper(HydraHelper):
             elif 'gateway' in contract['name']:
                 genesis['contracts'][contract_num]['init'] = {
                     "owner": {
-                        "chain_id": "default",
+                        "chain_id": self.app.config['provision']['chain_id'],
                         "local": oracle_addrs[0],
                     },
                     "oracles": [
                         {
-                            "chain_id": "default",
+                            "chain_id": self.app.config['provision']['chain_id'],
                             "local": oracle_addrs[0],
                         }
                     ],
@@ -210,7 +210,7 @@ class NetworkHelper(HydraHelper):
 
         # LOOM.YAML
         loom_config = {
-            'ChainID': 'default',
+            'ChainID': self.app.config['provision']['chain_id'],
             'RegistryVersion': 2,
             'DPOSVersion': 3,
             'ReceiptsVersion': 2,
@@ -229,7 +229,7 @@ class NetworkHelper(HydraHelper):
             },
             'Auth': {
                 'Chains': {
-                    'default': {
+                    self.app.config['provision']['chain_id']: {
                         'TxType': 'loom'
                     },
                     'eth': {

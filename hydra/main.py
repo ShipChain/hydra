@@ -37,8 +37,8 @@ CONFIG['provision']['pip_install'] = 'shipchain-hydra'
 CONFIG['provision']['gateway'] = {  # Rinkeby defaults
     'first_mainnet_block_num': 5180863,
     'ethereum_uri': 'https://rinkeby.infura.io/v3/1b8e8507933f40529210b790fcf7300e',
-    'mainnet_tg_contract_hex_address': '0x1D2f42918451833947D793137B0293AF49677517',
-    'mainnet_lctg_contract_hex_address': '0xE9edf0E98286DA79bB4C205a3E0340D9D1485840',
+    'mainnet_tg_contract_hex_address': '0xcad00961dEfF3ea83c33E5bb1e80D5F632939F56',
+    'mainnet_lctg_contract_hex_address': '0x5f5Cb9924aB9a2A959Fa6ec5cbC8372ab05bA79E',
     'mainnet_poll_interval': 60,
     'dappchain_poll_interval': 60,
     'oracle_log_level': 'debug',
@@ -54,6 +54,7 @@ CONFIG['provision']['dpos'] = {
     'fee': 2500,
     'referral_fee': 300
 }
+CONFIG['provision']['chain_id'] = 'gamma'
 CONFIG['loom']['loom_log_name'] = 'loom.log'
 CONFIG['loom']['loom_log_level'] = 'debug'
 CONFIG['loom']['contract_log_level'] = 'debug'
