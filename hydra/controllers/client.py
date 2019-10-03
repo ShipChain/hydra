@@ -159,7 +159,7 @@ class Client(Controller):  # pylint: disable=too-many-ancestors
         else:
             version = self.app.pargs.version
 
-        self.app.client.bootstrap(destination, version=version, destroy=self.app.pargs.destroy)
+        self.app.client.bootstrap(destination, version=version, destroy=self.app.pargs.destroy, oracle=self.app.pargs.oracle)
 
         if self.app.pargs.jumpstart != 'none':
             self.app.client.jumpstart(name, destination, self.app.pargs.jumpstart)

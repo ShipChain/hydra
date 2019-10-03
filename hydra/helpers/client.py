@@ -142,7 +142,7 @@ class ClientHelper(HydraHelper):
 
         return None
 
-    def bootstrap(self, destination, version=None, destroy=False):
+    def bootstrap(self, destination, version=None, destroy=False, oracle=False):
         if os.path.exists(destination):
             if not destroy:
                 self.app.log.error(f'Node directory exists, use -D to delete: {destination}')
@@ -154,12 +154,13 @@ class ClientHelper(HydraHelper):
         os.chdir(destination)
 
         self.app.utils.download_release_file('./shipchain', 'shipchain', version)
-        self.app.utils.download_release_file('./tgoracle', 'tgoracle', version)
-        self.app.utils.download_release_file('./loomcoin_tgoracle', 'loomcoin_tgoracle', version)
-
         os.chmod('./shipchain', os.stat('./shipchain').st_mode | stat.S_IEXEC)
-        os.chmod('./tgoracle', os.stat('./tgoracle').st_mode | stat.S_IEXEC)
-        os.chmod('./loomcoin_tgoracle', os.stat('./loomcoin_tgoracle').st_mode | stat.S_IEXEC)
+
+        if oracle:
+            self.app.utils.download_release_file('./tgoracle', 'tgoracle', version)
+            self.app.utils.download_release_file('./loomcoin_tgoracle', 'loomcoin_tgoracle', version)
+            os.chmod('./tgoracle', os.stat('./tgoracle').st_mode | stat.S_IEXEC)
+            os.chmod('./loomcoin_tgoracle', os.stat('./loomcoin_tgoracle').st_mode | stat.S_IEXEC)
 
         got_version = self.app.utils.binary_exec('./shipchain', 'version').stderr.strip()
         self.app.log.debug(f'Copied ShipChain binary version {got_version}')
