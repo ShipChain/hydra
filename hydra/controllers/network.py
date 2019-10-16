@@ -419,10 +419,12 @@ class Network(Controller):  # pylint: disable=too-many-ancestors
             jumpstart_include = [
                 'genesis.json',
                 'app.db',
+                'evm.db',
                 'receipts_db',
                 'chaindata/config/genesis.json',
                 'chaindata/data/blockstore.db',
                 'chaindata/data/evidence.db',
+                'chaindata/data/fnConsensus.db',
                 'chaindata/data/state.db',
                 'chaindata/data/tx_index.db',
             ]
