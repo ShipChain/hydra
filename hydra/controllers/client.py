@@ -1073,3 +1073,48 @@ class Client(Controller):  # pylint: disable=too-many-ancestors
             self.app.log.info(f'{dest_file} restored from chaindata/config/priv_validator.json.')
 
         self.app.client.start_service(name)
+
+    @ex(
+        arguments=[
+            (
+                    ['-n', '--name'],
+                    {
+                        'help': 'name of network to enable feature for',
+                        'action': 'store',
+                        'dest': 'name',
+                    }
+            ),
+            (
+                    ['feature'],
+                    {
+                        'help': 'name of feature to enable/disable or "defaults" '
+                                'to apply all default features defined by hydra',
+                        'action': 'store',
+                    }
+            ),
+        ]
+    )
+    def enable_chaincfg_feature(self):
+        name = self.app.utils.env_or_arg(
+            'name', 'HYDRA_NETWORK', or_path='.hydra_network', required=True)
+
+        destination = self.app.utils.path(name)
+
+        os.chdir(destination)
+
+        feature = self.app.pargs.feature
+
+        if feature == 'defaults':
+            self.app.log.info(f'Enabling default features via chain-cfg')
+            out = self.app.utils.binary_exec('./shipchain', 'chain-cfg', 'enable-feature', '-c',
+                                             self.app.config['provision'].get('chain_id', hydra.main.CONFIG['provision']['chain_id']),
+                                             '-k', 'node_priv.key',
+                                             *self.app.network.default_features_list())
+        else:
+            self.app.log.info(f'Enabling {feature} via chain-cfg')
+            out = self.app.utils.binary_exec('./shipchain', 'chain-cfg', 'enable-feature', '-c',
+                                             self.app.config['provision'].get('chain_id',
+                                                                              hydra.main.CONFIG['provision']['chain_id']),
+                                             '-k', 'node_priv.key',
+                                             feature)
+        self.app.log.info(out.stderr)

@@ -13,6 +13,48 @@ from . import HydraHelper
 
 
 class NetworkHelper(HydraHelper):
+    def default_features_list(self):
+        return [
+            'addrmapper:v1.1',
+            f"auth:sigtx:{self.app.config['provision']['chain_id']}",
+            'auth:sigtx:eth',
+            'chaincfg:v1.1',
+            'chaincfg:v1.2',
+            'chaincfg:v1.3',
+            'coin:v1.1',
+            'coin:v1.2',
+            'db:auxevm',
+            'db:evm',
+            'deploytx:v1.1',
+            'dpos:v3',
+            'dpos:v3.1',
+            'dpos:v3.2',
+            'dpos:v3.3',
+            'dpos:v3.4',
+            'dpos:v3.5',
+            'evm:constantinople',
+            'mw:mulcsigtx:v1.1',
+            'mw:userdeploy-wl',
+            'receipts:v2',
+            'receipts:v3',
+            'receipts:v3.1',
+            # 'receipts:v3.2',
+            # 'receipts:v3.3',
+            'receipts:v3.4',
+            'tg:binance-cm',
+            'tg:check-txhash',
+            'tg:check-zamt',
+            'tg:fix-erc721',
+            'tg:v1.1',
+            'tg:1.2',
+            'tx:check-value',
+            'tx:migration',
+            'tx:migration:v1.1',
+            'tx:eth',
+            'userdeploy-wl:v1.1',
+            'userdeploy-wl:v1.2'
+        ]
+
     def read_networks_file(self):
         try:
             return json.load(open(self.app.utils.path('networks.json'), 'r+'))
@@ -142,45 +184,7 @@ class NetworkHelper(HydraHelper):
                     "local": oracle_addrs[0],
                 }
             elif contract['name'] == 'chainconfig':
-                features = [
-                    'addrmapper:v1.1',
-                    f"auth:sigtx:{self.app.config['provision']['chain_id']}",
-                    'auth:sigtx:eth',
-                    'chaincfg:v1.1',
-                    'chaincfg:v1.2',
-                    'chaincfg:v1.3',
-                    'coin:v1.1',
-                    'coin:v1.2',
-                    'db:auxevm',
-                    'db:evm',
-                    'deploytx:v1.1',
-                    'dpos:v3',
-                    'dpos:v3.1',
-                    'dpos:v3.2',
-                    'dpos:v3.3',
-                    'dpos:v3.4',
-                    'dpos:v3.5',
-                    'evm:constantinople',
-                    'mw:mulcsigtx:v1.1',
-                    'mw:userdeploy-wl',
-                    'receipts:v2',
-                    'receipts:v3',
-                    'receipts:v3.1',
-                    # 'receipts:v3.2',
-                    # 'receipts:v3.3',
-                    'receipts:v3.4',
-                    'tg:binance-cm',
-                    'tg:check-txhash',
-                    'tg:check-zamt',
-                    'tg:fix-erc721',
-                    'tg:v1.1',
-                    'tg:1.2',
-                    'tx:check-value',
-                    'tx:migration',
-                    'tx:migration:v1.1',
-                    'userdeploy-wl:v1.1',
-                    'userdeploy-wl:v1.2'
-                ]
+                features = self.default_features_list()
                 contract['init']['features'] = [
                     {
                         "name": feature,
