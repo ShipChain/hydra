@@ -1068,7 +1068,7 @@ class Client(Controller):  # pylint: disable=too-many-ancestors
         else:
             # Back up old node_priv.key even if '-f'
             if os.path.exists(dest_file):
-                move(dest_file, dest_file + '.' + datetime.now.strftime('%Y-%m-%d-%H-%M-%S') + '.bak')
+                move(dest_file, dest_file + '.' + datetime.now().strftime('%Y-%m-%d-%H-%M-%S') + '.bak')
             open(dest_file, 'w+').write(validator['priv_key']['value'])
             self.app.log.info(f'{dest_file} restored from chaindata/config/priv_validator.json.')
 
