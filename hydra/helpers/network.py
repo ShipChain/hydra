@@ -125,7 +125,7 @@ class NetworkHelper(HydraHelper):
 
         # GENESIS.json
         genesis = json.loads(open_nth_file('genesis.json'))
-        oracle_addrs = [open_nth_file('node_addr.b64', n) for n in range(0, len(network['ips']))]
+        oracle_addrs = [self.run_command(ip, 'hydra client cat-key loomb64') for ip in network['ips']]
 
         for contract_num, contract in enumerate(genesis['contracts']):
             if contract['name'] == 'dposV3':

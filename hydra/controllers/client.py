@@ -1,8 +1,12 @@
+import base64
 import json
+import logging
 import os
 import stat
+import sys
 from collections import OrderedDict
-from shutil import rmtree, copyfile
+from datetime import datetime
+from shutil import rmtree, copyfile, move
 
 import requests
 import toml
@@ -637,11 +641,8 @@ class Client(Controller):  # pylint: disable=too-many-ancestors
                 # Telegraf not installed yet, can skip this
                 pass
 
-        # Read .bootstrap.json
-        bootstrap = json.load(open('.bootstrap.json', 'r'))
-
         # Attempt to register (upsert, also creates user if doesn't exist)
-        registry_details = self.app.client.update_validator_registry(info, bootstrap)
+        registry_details = self.app.client.update_validator_registry(info)
 
         if registry_details:
             info.update(registry_details)
@@ -765,6 +766,56 @@ class Client(Controller):  # pylint: disable=too-many-ancestors
             outputs['is_a_validator'] = False
 
         self.app.smart_render(outputs, 'key-value-print.jinja2')
+
+    @ex(
+        arguments=[
+            (
+                    ['-n', '--name'],
+                    {
+                        'help': 'name of network to get keys for',
+                        'action': 'store',
+                        'dest': 'name',
+                    }
+            ),
+            (
+                    ['key'],
+                    {
+                        'help': 'type of key to echo',
+                        'action': 'store',
+                        'choices': ['nodekey', 'pubkey', 'privkey', 'loomhex', 'loomb64', 'loomaddr'],
+                    }
+            ),
+        ]
+    )
+    def cat_key(self):
+        logging.disable(logging.CRITICAL)
+        name = self.app.utils.env_or_arg(
+            'name', 'HYDRA_NETWORK', or_path='.hydra_network', required=True)
+
+        destination = self.app.utils.path(name)
+
+        os.chdir(destination)
+
+        if self.app.pargs.key == 'nodekey':
+            key = self.app.utils.binary_exec('./shipchain', 'nodekey').stdout.strip()
+        else:
+            priv_validator = json.load(open('chaindata/config/priv_validator.json'))
+            if self.app.pargs.key == 'pubkey':
+                key = priv_validator['pub_key']['value']
+            elif self.app.pargs.key == 'privkey':
+                key = priv_validator['priv_key']['value']
+            elif self.app.pargs.key == 'loomhex':
+                key = self.app.utils.binary_exec('./shipchain', 'call', 'pubkey', priv_validator['pub_key']['value']).stdout.strip()
+                key = f'0x{key[10:]}'
+            elif self.app.pargs.key == 'loomb64':
+                key = self.app.utils.binary_exec('./shipchain', 'call', 'pubkey',
+                                                 priv_validator['pub_key']['value']).stdout.strip()
+                key = base64.b64encode(bytes.fromhex(key[10:])).decode()
+            else:
+                key = priv_validator['address']
+
+        sys.stdout.write(key)
+        logging.disable(logging.NOTSET)
 
     @ex(
         arguments=[
@@ -924,9 +975,6 @@ class Client(Controller):  # pylint: disable=too-many-ancestors
         os.chdir(network_folder)
 
         files_to_backup = [
-            'node_addr.b64',
-            'node_priv.key',
-            'node_pub.key',
             'chaindata/config/node_key.json',
             'chaindata/config/priv_validator.json',
         ]
@@ -989,9 +1037,6 @@ class Client(Controller):  # pylint: disable=too-many-ancestors
         os.chdir(network_folder)
 
         files_to_restore = [
-            'node_addr.b64',
-            'node_priv.key',
-            'node_pub.key',
             'chaindata/config/node_key.json',
             'chaindata/config/priv_validator.json',
         ]
@@ -1008,5 +1053,23 @@ class Client(Controller):  # pylint: disable=too-many-ancestors
             else:
                 copyfile(src_file, dest_file)
                 self.app.log.info(f'{dest_file} restored.')
+
+        # Restore node_priv.key from priv_validator.json
+        dest_file = 'node_priv.key'
+        validator = json.load(open('chaindata/config/priv_validator.json'))
+
+        if os.path.exists(dest_file) and not force:
+            # Check to see if they match
+            with open(dest_file, 'r') as node_priv:
+                node_priv_key = node_priv.readline().strip()
+            if node_priv_key != validator['priv_key']['value']:
+                self.app.log.error(f'WARNING: Existing priv_key in {dest_file} does not match priv_key in '
+                                   f'chaindata/config/priv_validator.json, to overwrite rerun command with "-f" ')
+        else:
+            # Back up old node_priv.key even if '-f'
+            if os.path.exists(dest_file):
+                move(dest_file, dest_file + '.' + datetime.now.strftime('%Y-%m-%d-%H-%M-%S') + '.bak')
+            open(dest_file, 'w+').write(validator['priv_key']['value'])
+            self.app.log.info(f'{dest_file} restored from chaindata/config/priv_validator.json.')
 
         self.app.client.start_service(name)

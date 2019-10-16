@@ -227,10 +227,7 @@ class ClientHelper(HydraHelper):
 
         json.dump(metadata, open('.bootstrap.json', 'w+'), indent=2)
 
-        self.app.log.debug('Writing key files...')
-        open('node_pub.key', 'w+').write(metadata['pubkey'])
         open('node_priv.key', 'w+').write(validator['priv_key']['value'])
-        open('node_addr.b64', 'w+').write(metadata['b64_address'])
 
     def jumpstart(self, name, network_directory, block):
         self.app.log.info(f'Attempting to jumpstart {name} to block: {block}.')
@@ -345,7 +342,7 @@ class ClientHelper(HydraHelper):
         for peer in peers:
             self.app.log.info(f'{peer}')
 
-        # Update node_addr.b64, node_priv.key, and node_pub.key files
+        # Update bootstrap files
         self.update_node_helper_files(version)
 
         # CHAINDATA/CONFIG/GENESIS.json
@@ -381,7 +378,12 @@ class ClientHelper(HydraHelper):
 
         self.app.log.info('Configured!')
 
-    def update_validator_registry(self, info, bootstrap):
+    def update_validator_registry(self, info):
+        node_key = self.app.utils.binary_exec('./shipchain', 'nodekey').stdout.strip()
+        validator = json.load(open('chaindata/config/priv_validator.json'))
+        hex_addr = self.app.utils.binary_exec('./shipchain', 'call', 'pubkey',
+                                              validator['pub_key']['value']).stdout.strip()
+
         # Upserts the validator's info in the ShipChain validator registry
         self.app.log.info('Updating ShipChain validator registry')
         params = {
@@ -390,10 +392,10 @@ class ClientHelper(HydraHelper):
             'website': info['website'],
             'email': info['email'],
             'primary_contact': info['primary_contact'],
-            'node_key': bootstrap['nodekey'],
-            'public_key': bootstrap['pubkey'],
-            'loom_address_hex': bootstrap['hex_address'],
-            'loom_address_b64': bootstrap['b64_address']
+            'node_key': node_key,
+            'public_key': validator['pub_key']['value'],
+            'loom_address_hex': f'0x{hex_addr[10:]}',
+            'loom_address_b64': base64.b64encode(bytes.fromhex(hex_addr[10:])).decode()
         }
         response = requests.post('https://registry.network.shipchain.io/validators/',
                                  json=params)
