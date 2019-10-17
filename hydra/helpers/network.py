@@ -348,7 +348,7 @@ class NetworkHelper(HydraHelper):
                     '#!/bin/bash -xe\n',
                     'apt update -y -q\n',
                     'UCF_FORCE_CONFOLD=1 DEBIAN_FRONTEND=noninteractive apt-get -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" -qq -y install python3-pip\n',
-                    'apt install -y -q htop tmux zsh jq libleveldb-dev libleveldb1v5 || true\n',
+                    'apt install -y -q htop tmux zsh jq libssl-dev libleveldb-dev libleveldb1v5 || true\n',
                     'mkdir /data\n',
                 ] + ([
                     # If type i3, mount NVMe drive at /data
