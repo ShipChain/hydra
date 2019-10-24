@@ -441,6 +441,9 @@ class Network(Controller):  # pylint: disable=too-many-ancestors
             self.app.log.info(f'Uploading {tarfile} to {s3_destination}')
             self.app.network.run_command(ip, f"cd /data/{name}; aws s3 cp {tarfile} {s3_destination} --acl public-read")
 
+            self.app.log.info(f'Cleaning up {tarfile}')
+            self.app.network.run_command(ip, f"cd /data/{name}; rm -f {tarfile}")
+
             s3 = self.app.release.get_boto().resource('s3')
             try:
                 jumps_obj = s3.Object(self.app.release.dist_bucket, f'jumpstart/{name}/jumps.json').get()
