@@ -226,6 +226,17 @@ class Network(Controller):  # pylint: disable=too-many-ancestors
         except Exception as exc:  # pylint: disable=broad-except
             self.app.log.warning(f'Error deleting stack: {exc}')
 
+        s3 = self.app.release.get_boto().resource('s3')
+        dist_bucket = s3.Bucket(self.app.release.dist_bucket)
+
+        self.app.log.info(f'Deleting jumpstarts for: {network_name}')
+        dist_bucket.objects.filter(Prefix=f'jumpstart/{network_name}/').delete()
+
+        self.app.log.info(f'Un-publishing: {network_name}')
+        dist_bucket.objects.filter(Prefix=f'networks/{network_name}/').delete()
+
+        self.app.log.info(f'De-provisioning complete for: {network_name}')
+
     @ex(help="destroy all registered cloudformation stacks")
     def deprovision_all(self):
         for network_name, options in self.app.network.read_networks_file().items():
