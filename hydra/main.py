@@ -1,5 +1,6 @@
 import os
 import warnings
+from subprocess import CalledProcessError
 
 from cement import App, TestApp, init_defaults
 from cement.core.exc import CaughtSignal
@@ -163,6 +164,14 @@ def main():
 
         except HydraError as exc:
             app.log.error(f'HydraError > {exc.args[0]}')
+            app.exit_code = 1
+
+            if app.debug is True:
+                import traceback
+                traceback.print_exc()
+
+        except CalledProcessError as exc:
+            app.log.error(f'Subprocess Error > {exc.stderr}')
             app.exit_code = 1
 
             if app.debug is True:

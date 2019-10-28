@@ -81,8 +81,9 @@ class ClientHelper(HydraHelper):
 
         self.app.utils.binary_exec('sudo', 'systemctl', 'stop', service_name)
         self.app.utils.binary_exec('sudo', 'systemctl', 'disable', service_name)
-        self.app.utils.binary_exec('sudo', 'systemctl', 'reset-failed', service_name)
+        self.app.utils.binary_exec('sudo', 'systemctl', 'reset-failed', service_name, ignore_error=True)
         self.app.utils.binary_exec('sudo', 'systemctl', 'daemon-reload')
+        self.app.utils.binary_exec('sudo', 'rm', systemd_service)
 
     def find_and_kill_executable(self, destination, binary='shipchain'):
         pid = self.app.client.get_pid(os.path.join(destination, binary), binary)

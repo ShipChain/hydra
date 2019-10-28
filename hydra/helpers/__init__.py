@@ -83,16 +83,19 @@ class UtilsHelper(HydraHelper):
     def binary_name(self):
         return self.config['hydra']['binary_name'] % self.config['hydra']
 
-    def binary_exec(self, path, *cmd):
-        return self.raw_exec(path, *cmd)
+    def binary_exec(self, path, *cmd, **kwargs):
+        return self.raw_exec(path, *cmd, **kwargs)
 
-    def raw_exec(self, *cmd):  # pylint: disable=no-self-use
+    def raw_exec(self, *cmd, **kwargs):  # pylint: disable=no-self-use
         """This provides subprocess functionality via the attached UtilsHelper instance.
 
         Pylint `no-self-use` should be disabled on this method to prevent that warning.
         This could be a staticmethod, but would make invoking it more cumbersome than it already is
         """
-        return subprocess.run(cmd, encoding='utf-8', stderr=subprocess.PIPE, stdout=subprocess.PIPE)
+        execution_result = subprocess.run(cmd, encoding='utf-8', stderr=subprocess.PIPE, stdout=subprocess.PIPE)
+        if 'ignore_error' not in kwargs or not kwargs['ignore_error']:
+            execution_result.check_returncode()
+        return execution_result
 
     def run_in_tmux(self, session, window, strcmd, **kwargs):  # pylint: disable=no-self-use
         """This provides tmux session functionality via the attached UtilsHelper instance.
