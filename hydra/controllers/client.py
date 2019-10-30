@@ -1054,10 +1054,16 @@ class Client(Controller):  # pylint: disable=too-many-ancestors
                 copyfile(src_file, dest_file)
                 self.app.log.info(f'{dest_file} restored.')
 
-        # Restore node_priv.key from priv_validator.json
         dest_file = 'node_priv.key'
         validator = json.load(open('chaindata/config/priv_validator.json'))
 
+        # Clear old network data out of priv_validator.json
+        for key in ('last_height', 'last_round', 'last_step', 'last_signature', 'last_signbytes'):
+            if key in validator:
+                del validator[key]
+        json.dump(validator, open('chaindata/config/priv_validator.json', 'w+'), indent=4)
+
+        # Restore node_priv.key from priv_validator.json
         if os.path.exists(dest_file) and not force:
             # Check to see if they match
             with open(dest_file, 'r') as node_priv:
