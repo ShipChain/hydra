@@ -1138,12 +1138,12 @@ class Client(Controller):  # pylint: disable=too-many-ancestors
             else:
                 self.app.log.warning(f'Skipping {feature}, feature already enabled.')
 
-        if features_to_enable:
-            self.app.log.info(f'Enabling {" ".join(features_to_enable)} via chain-cfg')
+        for feature in features_to_enable:
+            self.app.log.info(f'Enabling {feature} via chain-cfg')
             out = self.app.utils.binary_exec('./shipchain', 'chain-cfg', 'enable-feature', '-c',
                                              self.app.config['provision'].get('chain_id', hydra.main.CONFIG['provision']['chain_id']),
                                              '-k', 'node_priv.key',
-                                             *features_to_enable)
+                                             feature)
             self.app.log.info(out.stderr)
 
     LOOM_CONFIGS = {
