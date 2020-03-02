@@ -33,7 +33,7 @@ CONFIG['release']['aws_s3_dist_bucket'] = 'shipchain-network-dist'
 CONFIG['provision']['aws_profile'] = None
 CONFIG['provision']['aws_ec2_region'] = 'us-east-1'
 CONFIG['provision']['aws_ec2_instance_type'] = 'm5.xlarge'
-CONFIG['provision']['aws_ec2_ami_id'] = 'ami-05ecb1463f8f1ee4b'
+CONFIG['provision']['aws_ec2_ami_id'] = 'ami-046842448f9e74e7d'
 CONFIG['provision']['pip_install'] = 'shipchain-hydra'
 CONFIG['provision']['gateway'] = {  # Rinkeby defaults
     'first_mainnet_block_num': 5180863,

@@ -21,8 +21,10 @@ class NetworkHelper(HydraHelper):
             'chaincfg:v1.1',
             'chaincfg:v1.2',
             'chaincfg:v1.3',
+            'chaincfg:v1.4',
             'coin:v1.1',
             'coin:v1.2',
+            'coin:v1.3',
             'db:auxevm',
             'db:evm',
             'deploytx:v1.1',
@@ -38,15 +40,16 @@ class NetworkHelper(HydraHelper):
             'receipts:v2',
             'receipts:v3',
             'receipts:v3.1',
-            # 'receipts:v3.2',
-            # 'receipts:v3.3',
             'receipts:v3.4',
             'tg:binance-cm',
             'tg:check-txhash',
             'tg:check-zamt',
             'tg:fix-erc721',
             'tg:v1.1',
-            'tg:1.2',
+            'tg:v1.2',
+            'tg:v1.3',
+            'tg:v1.4',
+            'tg:v1.5',
             'tx:check-value',
             'tx:migration',
             'tx:migration:v1.1',
@@ -244,6 +247,13 @@ class NetworkHelper(HydraHelper):
             },
             'FnConsensus': {
                 'Enabled': True,
+            },
+            'UserDeployerWhitelist': {
+                'ContractEnabled': False
+            },
+            'DBBackend': 'cleveldb',
+            'Web3': {
+                'GetLogsMaxBlockRange': 999999999
             }
         }
 

@@ -53,7 +53,7 @@ class Client(Controller):  # pylint: disable=too-many-ancestors
             return
 
         with open(self.app.config_file, 'r+') as config_file:
-            cfg = yaml.load(config_file)
+            cfg = yaml.load(config_file, Loader=yaml.FullLoader)
 
         cfg['hydra']['channel_url'] = self.app.pargs.url
 
@@ -839,7 +839,7 @@ class Client(Controller):  # pylint: disable=too-many-ancestors
 
         self.app.config['hydra']['validator_metrics'] = 'true'
         with open(self.app.config_file, 'r+') as config_file:
-            cfg = yaml.load(config_file)
+            cfg = yaml.load(config_file, Loader=yaml.FullLoader)
         cfg['hydra']['validator_metrics'] = 'true'
         open(self.app.config_file, 'w+').write(yaml.dump(cfg, indent=4, default_flow_style=False))
 
@@ -870,7 +870,7 @@ class Client(Controller):  # pylint: disable=too-many-ancestors
 
         self.app.config['hydra']['validator_metrics'] = 'false'
         with open(self.app.config_file, 'r+') as config_file:
-            cfg = yaml.load(config_file)
+            cfg = yaml.load(config_file, Loader=yaml.FullLoader)
         cfg['hydra']['validator_metrics'] = 'false'
         open(self.app.config_file, 'w+').write(yaml.dump(cfg, indent=4, default_flow_style=False))
 
@@ -909,17 +909,27 @@ class Client(Controller):  # pylint: disable=too-many-ancestors
                     'dest': 'version'
                 }
             ),
+            (
+                ['-y'],
+                {
+                    'help': 'confirm that you want to upgrade (suppress prompt)',
+                    'action': 'store_true',
+                    'dest': 'confirmed'
+                }
+            ),
         ]
     )
-    def upgrade_binary(self, version=None):
+    def upgrade_binary(self):
         version = self.app.pargs.version
+        confirmed = self.app.pargs.confirmed
 
         name = self.app.utils.env_or_arg(
             'name', 'HYDRA_NETWORK', or_path='.hydra_network', required=True)
 
-        p = Prompt(f'Upgrading ShipChain binary to version {version or "latest"} on {name}. Please confirm (y/n):')
-        if not p.input.lower().startswith('y'):
-            return
+        if not confirmed:
+            p = Prompt(f'Upgrading ShipChain binary to version {version or "latest"} on {name}. Please confirm (y/n):')
+            if not p.input.lower().startswith('y'):
+                return
 
         destination = self.app.utils.path(name)
 
@@ -1108,19 +1118,94 @@ class Client(Controller):  # pylint: disable=too-many-ancestors
 
         os.chdir(destination)
 
-        feature = self.app.pargs.feature
+        features = self.app.pargs.feature
 
-        if feature == 'defaults':
-            self.app.log.info(f'Enabling default features via chain-cfg')
+        if features == 'defaults':
+            features = self.app.network.default_features_list()
+        else:
+            features = [features]
+
+        features_to_enable = []
+        for feature in features:
+            # Check if feature is valid, if not, we omit them because it'll blow up chaincfg
+            out = self.app.utils.binary_exec('./shipchain', 'chain-cfg', 'feature-enabled', '-c',
+                                             self.app.config['provision'].get('chain_id',
+                                                                              hydra.main.CONFIG['provision'][
+                                                                                  'chain_id']),
+                                             feature)
+            if out.stdout.strip() != 'true':
+                features_to_enable.append(feature)
+            else:
+                self.app.log.warning(f'Skipping {feature}, feature already enabled.')
+
+        if features_to_enable:
+            self.app.log.info(f'Enabling {" ".join(features_to_enable)} via chain-cfg')
             out = self.app.utils.binary_exec('./shipchain', 'chain-cfg', 'enable-feature', '-c',
                                              self.app.config['provision'].get('chain_id', hydra.main.CONFIG['provision']['chain_id']),
                                              '-k', 'node_priv.key',
-                                             *self.app.network.default_features_list())
-        else:
-            self.app.log.info(f'Enabling {feature} via chain-cfg')
-            out = self.app.utils.binary_exec('./shipchain', 'chain-cfg', 'enable-feature', '-c',
-                                             self.app.config['provision'].get('chain_id',
-                                                                              hydra.main.CONFIG['provision']['chain_id']),
-                                             '-k', 'node_priv.key',
-                                             feature)
-        self.app.log.info(out.stderr)
+                                             *features_to_enable)
+            self.app.log.info(out.stderr)
+
+    LOOM_CONFIGS = {
+        'b11346': {
+            'UserDeployerWhitelist': {
+                'ContractEnabled': False
+            },
+            'Web3': {
+                'GetLogsMaxBlockRange': 999999999
+            }
+        }
+    }
+    LOOM_CONFIGS['latest'] = LOOM_CONFIGS['b11346']
+
+    @ex(
+        arguments=[
+            (
+                    ['-n', '--name'],
+                    {
+                        'help': 'name of network to enable feature for',
+                        'action': 'store',
+                        'dest': 'name',
+                    }
+            ),
+            (
+                    ['-v', '--version'],
+                    {
+                        'help': 'binary version to apply configs for, i.e. "latest" or "b11346"',
+                        'action': 'store',
+                        'default': 'latest',
+                        'dest': 'version'
+                    }
+            ),
+        ]
+    )
+    def apply_loom_config(self):
+        name = self.app.utils.env_or_arg(
+            'name', 'HYDRA_NETWORK', or_path='.hydra_network', required=True)
+        version = self.app.pargs.version
+        if version != 'latest' and not version.startswith('b'):
+            version = f'b{version}'
+
+        destination = self.app.utils.path(name)
+        os.chdir(destination)
+
+        new_config = self.LOOM_CONFIGS.get(version)
+        if not new_config:
+            # Config not found for version
+            self.app.log.error(f'Configuration not found for build {version}')
+            return
+        self.app.log.info(f'Applying the following changes to loom.yaml:')
+        self.app.log.info('\n' + yaml.dump(new_config, indent=4, default_flow_style=False))
+
+        # Open loom.yaml
+        with open('loom.yaml', 'r') as config_file:
+            cfg = yaml.load(config_file, Loader=yaml.FullLoader)
+
+        # Merge config
+        cfg.update(new_config)
+
+        # Write updated loom.yaml
+        open('loom.yaml', 'w').write(yaml.dump(cfg, indent=4))
+
+        # Restart services
+        self.restart_service()

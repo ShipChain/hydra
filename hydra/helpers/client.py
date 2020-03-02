@@ -185,7 +185,9 @@ class ClientHelper(HydraHelper):
             'ChainConfig': {
                 'ContractEnabled': True
             },
-            'DBBackend': 'cleveldb',
+            'UserDeployerWhitelist': {
+                'ContractEnabled': False
+            },
         }
         open(f'loom.yaml', 'w+').write(
             yaml.dump(loom_config, indent=4, default_flow_style=False))
@@ -287,7 +289,7 @@ class ClientHelper(HydraHelper):
 
     def _setup_oracle_loom_yaml(self):
         with open('loom.yaml', 'r+') as config_file:
-            cfg = yaml.load(config_file)
+            cfg = yaml.load(config_file, Loader=yaml.FullLoader)
 
         for gateway in ('TransferGateway', 'LoomCoinTransferGateway'):
             cfg[gateway]['ContractEnabled'] = True
