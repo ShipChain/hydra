@@ -1143,7 +1143,7 @@ class Client(Controller):  # pylint: disable=too-many-ancestors
             out = self.app.utils.binary_exec('./shipchain', 'chain-cfg', 'enable-feature', '-c',
                                              self.app.config['provision'].get('chain_id', hydra.main.CONFIG['provision']['chain_id']),
                                              '-k', 'node_priv.key',
-                                             feature)
+                                             feature, ignore_error=True)
             self.app.log.info(out.stderr)
 
     LOOM_CONFIGS = {
