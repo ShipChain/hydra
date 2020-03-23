@@ -425,7 +425,7 @@ class Network(Controller):  # pylint: disable=too-many-ancestors
 
         try:
             tarfile = f'{datetime.today().strftime("%Y-%m-%d")}_{block_height}_{name}.tar.gz'
-            s3_destination = f's3://{self.app.release.dist_bucket}/jumpstart/{name}/{tarfile}'
+            s3_destination = f's3://{self.app.release.dist_bucket}/jumpstart/{name}'
 
             jumpstart_include = [
                 'genesis.json',
@@ -440,20 +440,39 @@ class Network(Controller):  # pylint: disable=too-many-ancestors
                 'chaindata/data/tx_index.db',
             ]
 
+            # The AMI does not include awscli by default
+            self.app.log.info(f'Ensuring AWS CLI is available')
+            self.app.network.run_command(ip, f"sudo apt-get -y install awscli 2>&1")
+
             self.app.log.info(f'Building {tarfile}')
             self.app.network.run_command(ip, f"cd /data/{name}; "
                                          f"tar -zcf {tarfile} "
                                          f"{' '.join(jumpstart_include)}")
 
-            # The AMI does not include awscli by default
-            self.app.log.info(f'Ensuring AWS CLI is available')
-            self.app.network.run_command(ip, f"sudo apt-get -y install awscli 2>&1")
-
-            self.app.log.info(f'Uploading {tarfile} to {s3_destination}')
-            self.app.network.run_command(ip, f"cd /data/{name}; aws s3 cp {tarfile} {s3_destination} --acl public-read")
+            self.app.log.info(f'Uploading {tarfile} to {s3_destination}/{tarfile}')
+            self.app.network.run_command(ip, f"cd /data/{name}; aws s3 cp {tarfile} {s3_destination}/{tarfile} --acl public-read")
 
             self.app.log.info(f'Cleaning up {tarfile}')
             self.app.network.run_command(ip, f"cd /data/{name}; rm -f {tarfile}")
+
+            # Backup full app.db for this node before pruning
+            self.app.network.run_command(ip, f"cp -r /data/{name}/app.db /data/{name}/app.db.bak")
+            pruned_tarfile = f'{datetime.today().strftime("%Y-%m-%d")}_{block_height}_{name}_small.tar.gz'
+            self.app.log.info(f'Building {pruned_tarfile}')
+            self.app.network.run_command(ip, f"cd /data/{name}; "
+                                             f"./shipchain db prune && ./shipchain db compact ")
+            self.app.network.run_command(ip, f"cd /data/{name}; "
+                                             f"tar -zcf {pruned_tarfile} "
+                                             f"{' '.join(jumpstart_include)}")
+
+            self.app.log.info(f'Uploading {pruned_tarfile} to {s3_destination}')
+            self.app.network.run_command(ip, f"cd /data/{name}; aws s3 cp {pruned_tarfile} {s3_destination}/{pruned_tarfile} --acl public-read")
+
+            self.app.log.info(f'Cleaning up {pruned_tarfile}')
+            self.app.network.run_command(ip, f"cd /data/{name}; rm -f {pruned_tarfile}")
+
+            # Restore full app.db for this node
+            self.app.network.run_command(ip, f"mv /data/{name}/app.db.bak /data/{name}/app.db")
 
             s3 = self.app.release.get_boto().resource('s3')
             try:
