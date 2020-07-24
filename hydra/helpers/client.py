@@ -2,6 +2,7 @@ import base64
 import getpass
 import json
 import os
+import re
 import socket
 import stat
 import subprocess
@@ -185,8 +186,11 @@ class ClientHelper(HydraHelper):
             'ChainConfig': {
                 'ContractEnabled': True
             },
+            'DeployerWhitelist': {
+                'ContractEnabled': True
+            },
             'UserDeployerWhitelist': {
-                'ContractEnabled': False
+                'ContractEnabled': True
             },
         }
         open(f'loom.yaml', 'w+').write(
@@ -477,7 +481,8 @@ class ClientHelper(HydraHelper):
         open(file, 'w+').write(yaml.dump(contents, indent=4))
 
     def _fetch_my_ip(self):
-        return self.app.utils.binary_exec('curl', '-4', 'https://ifconfig.co').stdout.strip()
+        output = self.app.utils.binary_exec('curl', '-4', '--retry', '30', 'https://ifconfig.co').stdout.strip()
+        return re.findall(r"\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$", output)[0]
 
     def _configure_toml(self, pex, addr_book_strict, peers, private_peers):
 

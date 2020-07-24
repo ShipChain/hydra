@@ -39,7 +39,7 @@ import datetime  # pragma: nocover
 import os  # pragma: nocover
 import subprocess  # pragma: nocover
 
-VERSION = (1, 1, 3, 'final', 0)
+VERSION = (1, 1, 4, 'final', 0)
 
 
 def get_version(version=VERSION):  # pragma: nocover

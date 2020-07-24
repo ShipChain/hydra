@@ -4,6 +4,7 @@ import warnings
 
 import boto3
 import paramiko
+from datetime import datetime
 from troposphere import Base64, Join, Output, Select, GetAtt, GetAZs, Ref, Tags
 from troposphere import ec2, iam, route53, elasticloadbalancingv2 as elb
 
@@ -36,6 +37,7 @@ class NetworkHelper(HydraHelper):
             'dpos:v3.5',
             'evm:constantinople',
             'mw:mulcsigtx:v1.1',
+            'mw:deploy-wl',
             'mw:userdeploy-wl',
             'receipts:v2',
             'receipts:v3',
@@ -54,7 +56,7 @@ class NetworkHelper(HydraHelper):
             'tx:migration',
             'tx:migration:v1.1',
             'tx:eth',
-            'userdeploy-wl:v1.1',
+            # 'userdeploy-wl:v1.1', # don't need tx throttling
             'userdeploy-wl:v1.2'
         ]
 
@@ -153,7 +155,7 @@ class NetworkHelper(HydraHelper):
         os.makedirs(f'networks/{network_name}/chaindata/config/', exist_ok=True)
 
         cd_genesis = json.loads(open_nth_file('chaindata/config/genesis.json'))
-        cd_genesis['genesis_time'] = '1970-01-01T00:00:00Z'
+        cd_genesis['genesis_time'] = datetime.utcnow().isoformat(timespec='seconds') + 'Z'
         cd_genesis['validators'] = [
             {
                 "name": "",
@@ -195,8 +197,8 @@ class NetworkHelper(HydraHelper):
                     } for feature in features
                 ]
                 contract['init']['params'] = {
-                    "voteThreshold": "67",
-                    "numBlockConfirmations": "1"
+                    "voteThreshold": "90",
+                    "numBlockConfirmations": "400"
                 }
             elif 'gateway' in contract['name']:
                 genesis['contracts'][contract_num]['init'] = {
@@ -212,6 +214,41 @@ class NetworkHelper(HydraHelper):
                     ],
                     "first_mainnet_block_num": str(self.app.config['provision']['gateway']['first_mainnet_block_num'])
                 }
+            elif contract['name'] == "deployerwhitelist":
+                genesis['contracts'][contract_num]['init'] = {
+                    "owner": {
+                        "chain_id": self.app.config['provision']['chain_id'],
+                        "local": oracle_addrs[0],
+                    },
+                    "deployers": [
+                        {
+                            "address": {
+                                "chain_id": self.app.config['provision']['chain_id'],
+                                "local": oracle_addrs[0],
+                            },
+                            "flags": 2  # EVM contract deployments
+                        }
+                    ],
+                }
+        genesis['contracts'].append({
+            "vm": "plugin",
+            "format": "plugin",
+            "name": "user-deployer-whitelist",
+            "location": "user-deployer-whitelist:1.0.0",
+            "init": {
+                "owner": {
+                    "chain_id": self.app.config['provision']['chain_id'],
+                    "local": oracle_addrs[0],
+                },
+                "tier_info": [
+                    {
+                        "id": 0,
+                        "fee": "10000",
+                        "name": "ShipChain Platform Developer"
+                    }
+                ]
+            }
+        })
 
         json.dump(genesis, open(f'{folder}/genesis.json', 'w+'), indent=4)
 
@@ -248,8 +285,11 @@ class NetworkHelper(HydraHelper):
             'FnConsensus': {
                 'Enabled': True,
             },
+            'DeployerWhitelist': {
+                'ContractEnabled': True
+            },
             'UserDeployerWhitelist': {
-                'ContractEnabled': False
+                'ContractEnabled': True
             },
             'DBBackend': 'cleveldb',
             'Web3': {
@@ -340,12 +380,16 @@ class NetworkHelper(HydraHelper):
                 SubnetId=provision_refs.random_subnet
             )
         ]
-        if 'i3' in instance.InstanceType:
-            instance.EbsOptimized = 'true'
-        else:
+
+        instance.EbsOptimized = 'true'
+        if 'i3' not in instance.InstanceType:
             instance.BlockDeviceMappings = [
                 # Set root volume size to 500gb
-                ec2.BlockDeviceMapping(DeviceName='/dev/sda1', Ebs=ec2.EBSBlockDevice(VolumeSize='500'))
+                ec2.BlockDeviceMapping(DeviceName='/dev/sda1', Ebs=ec2.EBSBlockDevice(
+                    VolumeSize='500',
+                    VolumeType='io1',
+                    Iops='1000'
+                ))
             ]
         instance.Tags = Tags(Name=f'{stack_name}-node{instance_num}')
         version_flag = f' --version={version}' if version else ''
@@ -358,7 +402,8 @@ class NetworkHelper(HydraHelper):
                     '#!/bin/bash -xe\n',
                     'apt update -y -q\n',
                     'UCF_FORCE_CONFOLD=1 DEBIAN_FRONTEND=noninteractive apt-get -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" -qq -y install python3-pip\n',
-                    'apt install -y -q htop tmux zsh jq libssl-dev libleveldb-dev libleveldb1v5 || true\n',
+                    'apt install -y -q htop tmux zsh jq libssl-dev libleveldb-dev || true\n',
+                    'ln -s /usr/lib/x86_64-linux-gnu/libleveldb.so /usr/lib/x86_64-linux-gnu/libleveldb.so.1\n',
                     'mkdir /data\n',
                 ] + ([
                     # If type i3, mount NVMe drive at /data

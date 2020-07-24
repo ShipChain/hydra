@@ -33,13 +33,13 @@ CONFIG['release']['aws_s3_dist_bucket'] = 'shipchain-network-dist'
 CONFIG['provision']['aws_profile'] = None
 CONFIG['provision']['aws_ec2_region'] = 'us-east-1'
 CONFIG['provision']['aws_ec2_instance_type'] = 'm5.xlarge'
-CONFIG['provision']['aws_ec2_ami_id'] = 'ami-046842448f9e74e7d'
+CONFIG['provision']['aws_ec2_ami_id'] = 'ami-06c8ff16263f3db59'
 CONFIG['provision']['pip_install'] = 'shipchain-hydra'
-CONFIG['provision']['gateway'] = {  # Rinkeby defaults
-    'first_mainnet_block_num': 5180863,
-    'ethereum_uri': 'https://rinkeby.infura.io/v3/1b8e8507933f40529210b790fcf7300e',
-    'mainnet_tg_contract_hex_address': '0xcad00961dEfF3ea83c33E5bb1e80D5F632939F56',
-    'mainnet_lctg_contract_hex_address': '0x5f5Cb9924aB9a2A959Fa6ec5cbC8372ab05bA79E',
+CONFIG['provision']['gateway'] = {  # Mainnet
+    'first_mainnet_block_num': 10516616,
+    'ethereum_uri': 'https://mainnet.infura.io/v3/1b8e8507933f40529210b790fcf7300e',
+    'mainnet_tg_contract_hex_address': '0x7f031CE5Df8B397680Fe025c9A9a15bCb2bDaBF1',
+    'mainnet_lctg_contract_hex_address': '0xd8bE8814dcedd01D6e5F61551d088386062f9bFb',
     'mainnet_poll_interval': 60,
     'dappchain_poll_interval': 60,
     'oracle_log_level': 'debug',
@@ -48,14 +48,14 @@ CONFIG['provision']['gateway'] = {  # Rinkeby defaults
 }
 CONFIG['provision']['dpos'] = {
     'validator_count': 51,
-    'election_cycle_length': 30,
+    'election_cycle_length': 1800,
     'registration_requirement': 250000,
-    'max_yearly_rewards': 30000000,
+    'max_yearly_rewards': 48000000,
     'lock_time': 0,
     'fee': 2500,
     'referral_fee': 300
 }
-CONFIG['provision']['chain_id'] = 'gamma'
+CONFIG['provision']['chain_id'] = 'default'
 CONFIG['loom']['loom_log_name'] = 'loom.log'
 CONFIG['loom']['loom_log_level'] = 'debug'
 CONFIG['loom']['contract_log_level'] = 'debug'

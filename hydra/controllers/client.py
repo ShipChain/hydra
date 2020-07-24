@@ -1148,8 +1148,11 @@ class Client(Controller):  # pylint: disable=too-many-ancestors
 
     LOOM_CONFIGS = {
         'b11346': {
+            'DeployerWhitelist': {
+                'ContractEnabled': True
+            },
             'UserDeployerWhitelist': {
-                'ContractEnabled': False
+                'ContractEnabled': True
             },
             'Web3': {
                 'GetLogsMaxBlockRange': 999999999
